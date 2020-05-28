@@ -67,7 +67,7 @@ $ npx start
  $ pushd cmake/build
  $ cmake -DCMAKE_PREFIX_PATH=$MY_INSTALL_DIR ../..
  $ make -j
- $ ./greeter_service
+ $ ./greeter_server
  ```
 
 
