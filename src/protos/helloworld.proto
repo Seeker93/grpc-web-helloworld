@@ -18,11 +18,14 @@ package helloworld;
 
 service Greeter {
   // unary call
-  rpc SayHello(HelloRequest) returns (HelloReply);
+  rpc SayHello(FileDetails) returns (HelloReply);
 }
 
-message HelloRequest {
-  string name = 1;
+message FileDetails {
+  string fileName = 1;
+  string dimensionx = 2;
+  string dimensiony = 3;
+  string dimensionz = 4;
 }
 
 message HelloReply {

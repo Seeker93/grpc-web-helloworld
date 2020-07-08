@@ -3,6 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
+    "@grpc/grpc-js": "^0.3.6",
+    "@grpc/proto-loader": "^0.3.0",
     "@testing-library/jest-dom": "^4.2.4",
     "@testing-library/react": "^9.5.0",
     "@testing-library/user-event": "^7.2.1",
@@ -10,16 +12,15 @@
     "@types/node": "^12.12.42",
     "@types/react": "^16.9.35",
     "@types/react-dom": "^16.9.8",
+    "async": "^1.5.2",
+    "bootstrap": "^4.5.0",
+    "google-protobuf": "^3.6.1",
+    "grpc": "^1.15.0",
+    "grpc-web": "^1.0.0",
     "react": "^16.13.1",
     "react-dom": "^16.13.1",
     "react-scripts": "3.4.1",
-    "typescript": "^3.7.5",
-    "@grpc/grpc-js": "^0.3.6",
-    "@grpc/proto-loader": "^0.3.0",
-    "async": "^1.5.2",
-    "google-protobuf": "^3.6.1",
-    "grpc": "^1.15.0",
-    "grpc-web": "^1.0.0"
+    "typescript": "^3.7.5"
   },
   "scripts": {
     "start": "react-scripts start",
@@ -28,7 +29,10 @@
     "eject": "react-scripts eject"
   },
   "eslintConfig": {
-    "extends": "react-app"
+    "extends": "react-app",
+    "ignorePatterns": [
+      "**/*_pb.js"
+    ]
   },
   "browserslist": {
     "production": [

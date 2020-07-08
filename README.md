@@ -23,9 +23,8 @@ When you have both `protoc` and `protoc-gen-grpc-web` installed, you can now
 run this command:
 
 ```sh
-$ protoc -I=./protos/ helloworld.proto \
-  --js_out=import_style=commonjs:. \
-  --grpc-web_out=import_style=commonjs,mode=grpcwebtext:.
+$ protoc -I=./protos/ helloworld.proto   --js_out=import_style=commonjs:./protos/   --grpc-web_out=import_style=commonjs,mode=grpcwebtext:./protos/
+
 ```
 
 After the command runs successfully, you should now see two new files generated
@@ -56,7 +55,7 @@ if you are running Docker on Mac/Windows, remove the `--network=host` option:
 2. Next, we need to build and run the React front-end
 ```sh
 $ npm install
-$ npx start
+$ npm start
 ```
 
  1.Next, open a new tab and build the C++ gRPC Service using CMAKE (Go here for prerequisites https://grpc.io/docs/languages/cpp/quickstart/).

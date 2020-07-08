@@ -29,6 +29,17 @@ endif()
 
 find_package(Threads REQUIRED)
 
+find_package(VTK COMPONENTS
+        vtkCommonCore
+        vtkCommonDataModel
+        vtkIOXML
+        vtkImagingCore
+        vtkImagingHybrid
+        vtkInteractionStyle
+        vtkRenderingCore
+        vtkRenderingFreeType
+        vtkRenderingOpenGL2
+        vtkRenderingVolumeOpenGL2 QUIET)
 if(GRPC_AS_SUBMODULE)
   # One way to build a projects that uses gRPC is to just include the
   # entire gRPC project tree via "add_subdirectory".
@@ -147,13 +158,17 @@ add_custom_command(
 include_directories("${CMAKE_CURRENT_BINARY_DIR}")
 
 # Targets greeter_[async_](client|server)
+include(${VTK_USE_FILE})
+
 foreach(_target
   greeter_server)
-  add_executable(${_target} "${_target}.cc"
+  add_executable(${_target} "${_target}.cxx"
     ${hw_proto_srcs}
     ${hw_grpc_srcs})
   target_link_libraries(${_target}
     ${_REFLECTION}
     ${_GRPC_GRPCPP}
+    ${VTK_LIBRARIES}
     ${_PROTOBUF_LIBPROTOBUF})
+ 
 endforeach()
