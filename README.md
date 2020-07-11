@@ -58,18 +58,6 @@ $ npm install
 $ npm start
 ```
 
- 1.Next, open a new tab and build the C++ gRPC Service using CMAKE (Go here for prerequisites https://grpc.io/docs/languages/cpp/quickstart/).
-
- ```sh
- $ cd server
- $ mkdir -p cmake/build
- $ pushd cmake/build
- $ cmake -DCMAKE_PREFIX_PATH=$MY_INSTALL_DIR ../..
- $ make -j
- $ ./greeter_server
- ```
-
-
 When these are all ready, you can open a browser tab and navigate to
 
 ```
