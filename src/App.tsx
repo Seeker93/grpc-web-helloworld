@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import './App.css';
 
 const { FileDetails,
-  HelloReply } = require('./protos/helloworld_pb.js');
-const { GreeterClient } = require('./protos/helloworld_grpc_web_pb.js');
+  HelloReply } = require('./voxualize-protos/helloworld_pb.js');
+const { GreeterClient } = require('./voxualize-protos/helloworld_grpc_web_pb.js');
 
 
 function App() {
