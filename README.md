@@ -23,7 +23,7 @@ When you have both `protoc` and `protoc-gen-grpc-web` installed, you can now
 run this command:
 
 ```sh
-$ protoc -I=./protos/ helloworld.proto   --js_out=import_style=commonjs:./protos/   --grpc-web_out=import_style=commonjs,mode=grpcwebtext:./protos/
+$ protoc -I=./voxualize-protos/ helloworld.proto   --js_out=import_style=commonjs:./voxualize-protos/   --grpc-web_out=import_style=commonjs,mode=grpcwebtext:./voxualize-protos/
 
 ```
 
