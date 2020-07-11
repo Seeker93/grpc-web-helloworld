@@ -17,6 +17,15 @@ You can download the `protoc-gen-grpc-web` protoc plugin from our
 If you don't already have `protoc` installed, you will have to download it
 first from [here](https://github.com/protocolbuffers/protobuf/releases).
 
+cd into the `voxualize-protos` folder and run:
+```sh
+
+$ git submodule init
+$ git submodule update
+
+```
+Then navigate back to the `src` folder
+
 Make sure they are both executable and are discoverable from your PATH.
 
 When you have both `protoc` and `protoc-gen-grpc-web` installed, you can now
