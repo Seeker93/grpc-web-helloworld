@@ -1,81 +1,68 @@
 import React, { useState } from 'react';
+import { FileSelector } from './components/FileSelector'
 import './App.css';
+import {InputGroup } from "@blueprintjs/core";
 
-const { FileDetails,
-  HelloReply, FilesRequest, FilesList } = require('./voxualize-protos/helloworld_pb.js');
+const { FileDetails, FilesRequest } = require('./voxualize-protos/helloworld_pb.js');
 const { GreeterClient } = require('./voxualize-protos/helloworld_grpc_web_pb.js');
 
 
 function App() {
-
-  const [uselessmessage, setUselessmessage] = useState('')
-  const [fileslist, setFileslist] = useState('')
   const [message, setMessage] = useState('')
   const [filename, setFilename] = useState('')
-  const [dimensionx, setDimensionx] =useState('')
-  const [dimensiony, setDimensiony] =useState('')
-  const [dimensionz, setDimensionz] =useState('')
+  const [dimensionx, setDimensionx] = useState('')
+  const [dimensiony, setDimensiony] = useState('')
+  const [dimensionz, setDimensionz] = useState('')
+  const [filenames, setFileNames] = useState([])
 
+  var client = new GreeterClient('http://' + window.location.hostname + ':8080', null, null);
 
-  var client = new GreeterClient('http://' + window.location.hostname + ':8080',
-    null, null);
-
+  
   const callGrpcService = () => {
     if(filename == null || filename == ''){
     }
-    else{
-    var request = new FileDetails();
-    request.setFilename(filename);
-    request.setDimensionx(dimensionx);
-    request.setDimensiony(dimensiony);
-    request.setDimensionz(dimensionz);
-    client.chooseFile(request, {}, (err: any, response: any) => {
-      if (response) {}
+    else {
+      var request = new FileDetails();
+      request.setFileName(filename);
+      request.setDimensionx(dimensionx);
+      request.setDimensiony(dimensiony);
+      request.setDimensionz(dimensionz);
+      client.chooseFile(request, {}, (err: any, response: any) => {
+        if (response) { }
+        else {
+          console.log(err);
+          setMessage('No response from server');
+        }
+      });
+    }
+  }
+ 
+  const requestFiles = ()=>{
+    var request = new FilesRequest();
+    request.setUselessMessage("This is a useless message");
+
+    client.listFiles(request, {}, (err: any, response: any) => {
+      if (response) {
+        setFileNames(response.getFileNameList());
+      }
       else {
-        setMessage('No response from server')
+        setMessage('Cannot contact server at this time' )
       }
     });
   }
-  }
-
- const onFilenameChange = (event:any)=>{
-  if (event !==null){
-    setFilename(event.target.files[0].name)
-  }
- }
-
- const requestFiles = () => {
-  console.log("requestFiles function being called");
-  var request = new FilesRequest();
-  request.setUselessMessage("This is a useless message");
-
-  client.listFiles(request, {}, (err: any, response: any) => {
-    if (response) {
-      // Response contains the file list as a string I think. How to display this?
-      setMessage(response.getFileNameList() + " " + response.getFileSizeList());
-      console.log("Hello");
-    }
-    else {
-      setMessage('Sent requestFiles request. Received no response.')
-    }
-  });
-}
 
 
   return (
     <div className="App">
       <header className="App-header">
-
-        <div className="d-flex flex-column my-2">
-        <button className="btn-success" onClick={requestFiles}>Click for a list of files</button>
-        <input type="file"  onChange={(event)=>{onFilenameChange(event)}} name="Browse..." />
-
-        <input placeholder={"Enter x coordinate"}  value={dimensionx} onChange={(event)=>setDimensionx(event.target.value)} className="my-2" name="X:"/>
-        <input placeholder={"Enter y coordinate"} value={dimensiony} onChange={(event)=>setDimensiony(event.target.value)}  className="my-2" name="Y:"/>
-        <input placeholder={"Enter z coordinate"}  value={dimensionz} onChange={(event)=>setDimensionz(event.target.value)} className="my-2" name="Z:"/>
+        <FileSelector files={filenames} name={"Choose a file ..."} onClick={requestFiles} onItemSelected={(file: any) => { setFilename(file)}} />
+        <div className="d-flex flex-column my-4 ">
+          <InputGroup  placeholder={"Enter x coordinate"} value={dimensionx} onChange={(event:any) => setDimensionx(event.target.value)}  name="X:" />
+          <InputGroup  placeholder={"Enter y coordinate"} value={dimensiony} onChange ={(event:any) => setDimensiony(event.target.value)}  name="Y:" />
+          <InputGroup  placeholder={"Enter z coordinate"} value={dimensionz} onChange={(event:any) => setDimensionz(event.target.value)}  name="Z:" />
         </div>
-        {message}
-        <button className="btn-success" onClick={callGrpcService}>Click for grpc request</button>
+        <h5>{message}</h5>
+        <button className="btn btn-success" onClick={callGrpcService}>Render</button>
 
       </header>
     </div>
