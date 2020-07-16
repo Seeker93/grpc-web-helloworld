@@ -2,12 +2,14 @@ import React, { useState } from 'react';
 import './App.css';
 
 const { FileDetails,
-  HelloReply } = require('./voxualize-protos/helloworld_pb.js');
+  HelloReply, FilesRequest, FilesList } = require('./voxualize-protos/helloworld_pb.js');
 const { GreeterClient } = require('./voxualize-protos/helloworld_grpc_web_pb.js');
 
 
 function App() {
 
+  const [uselessmessage, setUselessmessage] = useState('')
+  const [fileslist, setFileslist] = useState('')
   const [message, setMessage] = useState('')
   const [filename, setFilename] = useState('')
   const [dimensionx, setDimensionx] =useState('')
@@ -27,14 +29,13 @@ function App() {
     request.setDimensionx(dimensionx);
     request.setDimensiony(dimensiony);
     request.setDimensionz(dimensionz);
-    client.sayHello(request, {}, (err: any, response: any) => {
+    client.chooseFile(request, {}, (err: any, response: any) => {
       if (response) {}
       else {
         setMessage('No response from server')
       }
     });
   }
-
   }
 
  const onFilenameChange = (event:any)=>{
@@ -43,11 +44,28 @@ function App() {
   }
  }
 
+ const requestFiles = () => {
+  console.log("requestFiles function being called");
+  var request = new FilesRequest();
+  request.setUselessmessage("This is a useless message");
+
+  client.listFiles(request, {}, (err: any, response: any) => {
+    if (response) {
+      // Response contains the file list as a string I think. How to display this?
+    }
+    else {
+      setMessage('Sent requestFiles request. Received no response.')
+    }
+  });
+}
+
+
   return (
     <div className="App">
       <header className="App-header">
 
         <div className="d-flex flex-column my-2">
+        <button className="btn-success" onClick={requestFiles}>Click for a list of files</button>
         <input type="file"  onChange={(event)=>{onFilenameChange(event)}} name="Browse..." />
 
         <input placeholder={"Enter x coordinate"}  value={dimensionx} onChange={(event)=>setDimensionx(event.target.value)} className="my-2" name="X:"/>
