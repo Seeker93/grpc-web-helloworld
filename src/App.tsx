@@ -52,6 +52,7 @@ function App() {
   client.listFiles(request, {}, (err: any, response: any) => {
     if (response) {
       // Response contains the file list as a string I think. How to display this?
+      setMessage(response.getFileslist())
     }
     else {
       setMessage('Sent requestFiles request. Received no response.')
