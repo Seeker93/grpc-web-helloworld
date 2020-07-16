@@ -47,12 +47,13 @@ function App() {
  const requestFiles = () => {
   console.log("requestFiles function being called");
   var request = new FilesRequest();
-  request.setUselessmessage("This is a useless message");
+  request.setUselessMessage("This is a useless message");
 
   client.listFiles(request, {}, (err: any, response: any) => {
     if (response) {
       // Response contains the file list as a string I think. How to display this?
-      setMessage(response.getFileslist())
+      setMessage(response.getFileNameList() + " " + response.getFileSizeList());
+      console.log("Hello");
     }
     else {
       setMessage('Sent requestFiles request. Received no response.')
