@@ -7,23 +7,23 @@ function FileSelector(props:any) {
     const [selectorText, setSelectorText] = useState("Choose a file ...")
     const FileSelect = Select.ofType<any>();
     
-    const renderFilm: ItemRenderer<any> = (files, { handleClick, modifiers }) => {
+    const renderFile: ItemRenderer<any> = (files, { handleClick, modifiers }) => {
         if (!modifiers.matchesPredicate) {
             return null;
         }
         return (
             <MenuItem
                 active={modifiers.active}
-                label={files}
+                label={parseFloat(files.getFileSize()).toFixed(2).toString() + " mb"}
                 onClick={handleClick}
-                text={files}
-                key={files}
+                text={files.getFileName()}
+                key={files.getFileName()}
             />
         );
     };
 
     const filterFile: ItemPredicate<any> = (query, file) => {
-        return file.toLowerCase().indexOf(query.toLowerCase()) >= 0;
+        return file.getFileName().toLowerCase().indexOf(query.toLowerCase()) >= 0;
     };
 
     const onItemSelected = (item:any)=>{
@@ -34,9 +34,9 @@ function FileSelector(props:any) {
     return (
         <FileSelect
             items={props.files}
-            itemRenderer={renderFilm}
+            itemRenderer={renderFile}
             noResults={<MenuItem disabled={true} text="No results." />}
-            onItemSelect={(item:any) => onItemSelected(item)}
+            onItemSelect={(item:any) => onItemSelected(item.getFileName())}
             itemPredicate={filterFile}
         >
             {/* children become the popover target; render value here */}
