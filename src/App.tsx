@@ -14,20 +14,17 @@ function App() {
   var client = new GreeterClient('http://' + window.location.hostname + ':8080', null, null);
 
   
+  
   const callGrpcService = () => {
     if(filename === null || filename === ''){
     }
     else {
       var request = new FileDetails();
       request.setFileName(filename);
-      client.chooseFile(request, {}, (err: any, response: any) => {
+      var chooseFileClient=  client.chooseFile(request,{})
+      chooseFileClient.on('data',(response:any) => {
         if (response) { 
-
-
-        }
-        else {
-          console.log(err);
-          setMessage('No response from server');
+          console.log(response.getBytes())
         }
       });
     }
