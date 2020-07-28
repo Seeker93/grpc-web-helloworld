@@ -32,16 +32,15 @@ When you have both `protoc` and `protoc-gen-grpc-web` installed, you can now
 run this command:
 
 ```sh
-$ protoc -I=./voxualize-protos/ helloworld.proto   --js_out=import_style=commonjs:./voxualize-protos/   --grpc-web_out=import_style=commonjs,mode=grpcwebtext:./voxualize-protos/
+$ protoc -I=./voxualize-protos/ voxualize.proto   --js_out=import_style=commonjs:./voxualize-protos/   --grpc-web_out=import_style=commonjs,mode=grpcwebtext:./voxualize-protos/
 
 ```
 
 After the command runs successfully, you should now see two new files generated
 in the current directory:
 
- - `helloworld_pb.js`: this contains the `HelloRequest` and `HelloReply`
-   classes
- - `helloworld_grpc_web_pb.js`: this contains the `GreeterClient` class
+ - `voxualize_pb.js`
+ - `voxualize_grpc_web_pb.js`
  
 ## Run the Example!
  
@@ -50,15 +49,15 @@ in the current directory:
  above).
 
  ```sh
- $ sudo docker build -t helloworld/envoy -f ./envoy.Dockerfile .
- $ sudo docker run -d -p 8080:8080 -p 9901:9901 --network=host helloworld/envoy
+ $ sudo docker build -t voxualize/envoy -f ./envoy.Dockerfile .
+ $ sudo docker run -d -p 8080:8080 -p 9901:9901 --network=host voxualize/envoy
  ```
 
 NOTE: As per [this issue](https://github.com/grpc/grpc-web/issues/436):
 if you are running Docker on Mac/Windows, remove the `--network=host` option:
 
  ```sh
- $ docker run -d -p 8080:8080 -p 9901:9901 helloworld/envoy
+ $ docker run -d -p 8080:8080 -p 9901:9901 voxualize/envoy
  ```
 
 2. Next, we need to build and run the React front-end

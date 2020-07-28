@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import { FileSelector } from './components/FileSelector'
 import './App.css';
 
-const { FileDetails, FilesRequest } = require('./voxualize-protos/helloworld_pb.js');
-const { GreeterClient } = require('./voxualize-protos/helloworld_grpc_web_pb.js');
+const { FileDetails, FilesRequest } = require('./voxualize-protos/voxualize_pb.js');
+const { GreeterClient } = require('./voxualize-protos/voxualize_grpc_web_pb.js');
 
 
 function App() {
