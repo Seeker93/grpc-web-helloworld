@@ -10,8 +10,8 @@ import vtkColorTransferFunction from 'vtk.js/Sources/Rendering/Core/ColorTransfe
 import vtkPiecewiseFunction from 'vtk.js/Sources/Common/DataModel/PiecewiseFunction';
 import { VtkDataTypes } from 'vtk.js/Sources/Common/Core/DataArray/Constants';
 
-const { FileDetails, FilesRequest } = require('./voxualize-protos/helloworld_pb.js');
-const { GreeterClient } = require('./voxualize-protos/helloworld_grpc_web_pb.js');
+const { FileDetails, FilesRequest } = require('./voxualize-protos/voxualize_pb.js');
+const { GreeterClient } = require('./voxualize-protos/voxualize_grpc_web_pb.js');
 
 
 
@@ -28,9 +28,9 @@ function App() {
         console.log('gets to render')
 
         function initCubeVolume() {
-            var width = 255, height = 255, depth = 159;  
+            var width = 255, height = 255, depth = 159;
             var values = new Float32Array(rawArray);
-            
+
             console.log(values)
 
             var scalars = vtkDataArray.newInstance({
@@ -42,8 +42,8 @@ function App() {
 
             var imageData = vtkImageData.newInstance();
             imageData.setOrigin(0, 0, 0);
-            imageData.setSpacing(1, width/height, width/depth);
-            imageData.setExtent(0, 50 - 1, 0, 50 - 1, 0, 50 - 1);
+            imageData.setSpacing(1, width / height, width / depth);
+            imageData.setExtent(0, width - 1, 0, height - 1, 0, depth - 1);
             imageData.getPointData().setScalars(scalars);
 
             var volumeMapper = vtkVolumeMapper.newInstance();
@@ -101,8 +101,10 @@ function App() {
         setFileChosen(true)
 
     }
+    console.log(rawArray)
 
     const callGrpcService = async () => {
+
 
         if (filename === null || filename === '') {
         }
@@ -111,8 +113,7 @@ function App() {
             request.setFileName(filename);
             var chooseFileClient = client.chooseFile(request, {})
             chooseFileClient.on('data', (response: any) => {
-                console.log(rawArray)
-                setRawArray([...rawArray, ...response.getBytes()])
+                setRawArray(response.getBytes())
             }
             )
         }
