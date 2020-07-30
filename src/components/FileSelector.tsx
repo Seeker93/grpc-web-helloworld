@@ -38,6 +38,7 @@ function FileSelector(props:any) {
             noResults={<MenuItem disabled={true} text="No results." />}
             onItemSelect={(item:any) => onItemSelected(item.getFileName())}
             itemPredicate={filterFile}
+            className={props.className}
         >
             {/* children become the popover target; render value here */}
             <Button text={selectorText} rightIcon="double-caret-vertical" onClick={props.onClick} />
