@@ -30,14 +30,10 @@ function App() {
     }
     
     const renderDataCube = () => {
-        console.log('gets to render')
-
         function initCubeVolume() {
-            var width = 255, height = 255, depth = 159;
+            var width = 256, height = 256, depth = 159;
             var values = convertBlock(rawArray);
-
-            console.log(values)
-
+            
             var scalars = vtkDataArray.newInstance({
                 values: values,
                 numberOfComponents: 1, // number of channels (grayscale)
@@ -47,16 +43,16 @@ function App() {
 
             var imageData = vtkImageData.newInstance();
             imageData.setOrigin(0, 0, 0);
-            imageData.setSpacing(1, width / height, width / depth);
+            imageData.setSpacing(1.0, (width / height).toFixed(2), (width / depth).toFixed(2));
             imageData.setExtent(0, width - 1, 0, height - 1, 0, depth - 1);
             imageData.getPointData().setScalars(scalars);
 
             var volumeMapper = vtkVolumeMapper.newInstance();
             volumeMapper.setInputData(imageData);
-
+            volumeMapper.setBlendModeToComposite();
             var volumeActor = vtkVolume.newInstance();
             volumeActor.setMapper(volumeMapper);
-
+            
             initProps(volumeActor.getProperty());
 
             var view3d = document.getElementById("view3d");
@@ -66,7 +62,7 @@ function App() {
                     height: '100%',
                     overflow: 'hidden'
                 },
-                background: [0, 0, 0]
+                background: [220, 185, 152 ]
             });
 
             var renderer = fullScreenRenderer.getRenderer();
@@ -84,8 +80,8 @@ function App() {
             property.setRGBTransferFunction(0, newColorFunction());
             property.setScalarOpacity(0, newOpacityFunction());
             property.setInterpolationTypeToNearest();
-            property.setUseGradientOpacity(0, true);
-            property.setShade(true);
+            property.setUseGradientOpacity(0, false);
+    
         }
 
         function newColorFunction() {
