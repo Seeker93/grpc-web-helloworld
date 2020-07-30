@@ -24,12 +24,17 @@ function App() {
 
     var client = new GreeterClient('http://' + window.location.hostname + ':8080', null, null);
 
+    const convertBlock= (incomingData) => { 
+        const slicedArray = incomingData.slice();
+        return new Float32Array(slicedArray.buffer);
+    }
+    
     const renderDataCube = () => {
         console.log('gets to render')
 
         function initCubeVolume() {
             var width = 255, height = 255, depth = 159;
-            var values = new Float32Array(rawArray);
+            var values = convertBlock(rawArray);
 
             console.log(values)
 
@@ -48,7 +53,6 @@ function App() {
 
             var volumeMapper = vtkVolumeMapper.newInstance();
             volumeMapper.setInputData(imageData);
-            volumeMapper.setBlendModeToComposite();
 
             var volumeActor = vtkVolume.newInstance();
             volumeActor.setMapper(volumeMapper);
