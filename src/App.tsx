@@ -22,6 +22,7 @@ function App() {
     const [rawArray, setRawArray] = useState([])
     const [loading, setLoading] = useState(false)
     const [cubeLoaded, setCubeLoaded] = useState(false)
+    const [totalBytes, setTotalBytes] = useState(0);
 
 
     var client = new GreeterClient('http://' + window.location.hostname + ':8080', null, null);
@@ -31,19 +32,45 @@ function App() {
         return new Float32Array(slicedArray.buffer);
     }
 
+
     useEffect(() => {
-        renderDataCube()
+        if (totalBytes === 41680896) {
+            setCubeLoaded(true)
+            renderDataCube()
+        }
 
-    }, [cubeLoaded]);
+    }, [totalBytes]);
 
-    
+    function concatArrays() { // a, b TypedArray of same type
+        let array = rawArray
+
+        // Get the total length of all arrays.
+        let length = 0;
+        array.forEach(item => {
+
+            length += item.length;
+        });
+
+        // Create a new array with total length and merge all source arrays.
+        let mergedArray = new Uint8Array(length);
+        let offset = 0;
+        array.forEach(item => {
+            mergedArray.set(item, offset);
+            offset += item.length;
+        });
+
+        // Should print an array with length 90788 (5x 16384 + 8868 your source arrays)
+        return mergedArray
+    }
+
     const renderDataCube = () => {
         setLoading(true)
 
         function initCubeVolume() {
-            var width = 256, height = 256, depth = 159;
-            var values = convertBlock(rawArray);
 
+            var width = 256, height = 256, depth = 159;
+            var rawValues = concatArrays()
+            var values = convertBlock(rawValues);
             var scalars = vtkDataArray.newInstance({
                 values: values,
                 numberOfComponents: 1, // number of channels (grayscale)
@@ -80,6 +107,7 @@ function App() {
             renderer.getActiveCamera().elevation(30);
             renderer.getActiveCamera().azimuth(45);
 
+
             renderer.resetCamera();
 
             var renderWindow = fullScreenRenderer.getRenderWindow();
@@ -110,7 +138,6 @@ function App() {
         initCubeVolume();
         setLoading(false)
     }
-
     const getFileData = () => {
 
         if (filename === null || filename === '') {
@@ -124,9 +151,8 @@ function App() {
             request.setFileName(filename);
             var chooseFileClient = client.chooseFile(request, {})
             chooseFileClient.on('data', (response: any, err: any) => {
-                setRawArray(response.getBytes())
-                setLoading(false)
-                setCubeLoaded(true)
+                setRawArray(rawArray => rawArray.concat(response.getBytes()))
+                setTotalBytes(totalBytes => totalBytes + response.getNumBytes())
                 if (err) {
                     setLoading(false)
                 }
@@ -150,7 +176,8 @@ function App() {
     }
 
 
-    console.log(loading)
+
+
     return (
         <div className="App d-flex container-fluid row">
             <div className="col col-sm-2 bg-dark pt-5">
@@ -158,17 +185,13 @@ function App() {
                 <FileSelector className="pb-5" files={filenames} name={"Choose a file ..."} onClick={requestFiles} onItemSelected={(file: any) => { setFileName(file) }} />
                 <h5>{message}</h5>
                 <button className="btn btn-success mt-5" onClick={getFileData}>Render</button>
-            </div>
-            {loading &&
-                <header className="App-header">
-                    <img src={logo} className="App-logo" alt="logo" />
-                </header>
-            }
-            {cubeLoaded &&
-                <div id="view3d" className="render-window">
 
-                </div>
-            }
+            </div>
+            <div className="Rendering-window" id="view3d">
+                {loading &&
+                    <img src={logo} className="App-logo" alt="logo" />
+                }
+            </div>
 
         </div>
     );
