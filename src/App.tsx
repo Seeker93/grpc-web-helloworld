@@ -7,6 +7,7 @@ import vtkDataArray from 'vtk.js/Sources/Common/Core/DataArray';
 import vtkVolume from 'vtk.js/Sources/Rendering/Core/Volume';
 import vtkVolumeMapper from 'vtk.js/Sources/Rendering/Core/VolumeMapper';
 import vtkColorTransferFunction from 'vtk.js/Sources/Rendering/Core/ColorTransferFunction';
+import vtkCamera from 'vtk.js/Sources/Rendering/Core/Camera'
 import vtkPiecewiseFunction from 'vtk.js/Sources/Common/DataModel/PiecewiseFunction';
 import { VtkDataTypes } from 'vtk.js/Sources/Common/Core/DataArray/Constants';
 import logo from "./logo.svg";
@@ -21,8 +22,9 @@ function App() {
     const [filenames, setFileNames] = useState([])
     const [rawArray, setRawArray] = useState([])
     const [loading, setLoading] = useState(false)
-    const [cubeLoaded, setCubeLoaded] = useState(false)
     const [totalBytes, setTotalBytes] = useState(0);
+    const [renderer, setRenderer] = useState(null)
+
 
 
     var client = new GreeterClient('http://' + window.location.hostname + ':8080', null, null);
@@ -35,7 +37,6 @@ function App() {
 
     useEffect(() => {
         if (totalBytes === 41680896) {
-            setCubeLoaded(true)
             renderDataCube()
         }
 
@@ -67,7 +68,6 @@ function App() {
         setLoading(true)
 
         function initCubeVolume() {
-
             var width = 256, height = 256, depth = 159;
             var rawValues = concatArrays()
             var values = convertBlock(rawValues);
@@ -106,6 +106,7 @@ function App() {
             renderer.addVolume(volumeActor);
             renderer.getActiveCamera().elevation(30);
             renderer.getActiveCamera().azimuth(45);
+            setRenderer(renderer)
 
 
             renderer.resetCamera();
@@ -138,6 +139,7 @@ function App() {
         initCubeVolume();
         setLoading(false)
     }
+
     const getFileData = () => {
 
         if (filename === null || filename === '') {
@@ -161,6 +163,10 @@ function App() {
         }
     }
 
+    const logCameraPosition = () =>{
+        console.log(renderer.getActiveCamera().getPosition())
+    }
+    
     const requestFiles = () => {
         var request = new FilesRequest();
         request.setUselessMessage("This is a useless message");
@@ -185,6 +191,7 @@ function App() {
                 <FileSelector className="pb-5" files={filenames} name={"Choose a file ..."} onClick={requestFiles} onItemSelected={(file: any) => { setFileName(file) }} />
                 <h5>{message}</h5>
                 <button className="btn btn-success mt-5" onClick={getFileData}>Render</button>
+                <button className="btn btn-success mt-5" onClick={logCameraPosition}>Log position</button>
 
             </div>
             <div className="Rendering-window" id="view3d">
