@@ -7,12 +7,12 @@ import vtkDataArray from 'vtk.js/Sources/Common/Core/DataArray';
 import vtkVolume from 'vtk.js/Sources/Rendering/Core/Volume';
 import vtkVolumeMapper from 'vtk.js/Sources/Rendering/Core/VolumeMapper';
 import vtkColorTransferFunction from 'vtk.js/Sources/Rendering/Core/ColorTransferFunction';
-import vtkCamera from 'vtk.js/Sources/Rendering/Core/Camera'
 import vtkPiecewiseFunction from 'vtk.js/Sources/Common/DataModel/PiecewiseFunction';
 import { VtkDataTypes } from 'vtk.js/Sources/Common/Core/DataArray/Constants';
 import logo from "./logo.svg";
+import { render } from 'react-dom';
 
-const { FileDetails, FilesRequest } = require('./voxualize-protos/voxualize_pb.js');
+const { FileDetails, FilesRequest, CameraInfo } = require('./voxualize-protos/voxualize_pb.js');
 const { GreeterClient } = require('./voxualize-protos/voxualize_grpc_web_pb.js');
 
 
@@ -23,7 +23,6 @@ function App() {
     const [rawArray, setRawArray] = useState([])
     const [loading, setLoading] = useState(false)
     const [totalBytes, setTotalBytes] = useState(0);
-    const [renderer, setRenderer] = useState(null)
 
 
 
@@ -101,17 +100,18 @@ function App() {
                 },
                 background: [220, 185, 152]
             });
-
+            view3d.addEventListener('mouseup', ()=>debounceLog(renderer));
             var renderer = fullScreenRenderer.getRenderer();
             renderer.addVolume(volumeActor);
             renderer.getActiveCamera().elevation(30);
             renderer.getActiveCamera().azimuth(45);
-            setRenderer(renderer)
 
 
             renderer.resetCamera();
 
             var renderWindow = fullScreenRenderer.getRenderWindow();
+            const interactor = fullScreenRenderer.getRenderWindow().getInteractor();
+            interactor.bindEvents(view3d)
             renderWindow.render();
         }
 
@@ -122,6 +122,8 @@ function App() {
             property.setUseGradientOpacity(0, false);
 
         }
+
+
 
         function newColorFunction() {
             var fun = vtkColorTransferFunction.newInstance();
@@ -163,10 +165,36 @@ function App() {
         }
     }
 
-    const logCameraPosition = () =>{
-        console.log(renderer.getActiveCamera().getPosition())
+    // const debounce = (func, delay) => {
+    //     let debounceTimer
+    //     return function () {
+    //         const context = this
+    //         const args = arguments
+    //         clearTimeout(debounceTimer)
+    //         debounceTimer
+    //             = setTimeout(() => func.apply(context, args), delay)
+    //     }
+    // }
+
+    var debounceLog = (thisRenderer: any) => {
+        var request = new CameraInfo();
+        const positionList = thisRenderer.getActiveCamera().getPosition()
+        const focalPointList = thisRenderer.getActiveCamera().getFocalPoint()
+        console.log("Position: " + positionList)
+        console.log("Focal point: " + focalPointList)
+        request.setPositionList(positionList)
+        request.setFocalPointList(focalPointList)
+        client.getHighQualityRender(request, {}, (err: any, response: any) => {
+            if (response) {
+                console.log(response)
+            }
+            else {
+                console.log(err)
+            }
+        })
     }
-    
+
+
     const requestFiles = () => {
         var request = new FilesRequest();
         request.setUselessMessage("This is a useless message");
@@ -181,9 +209,6 @@ function App() {
         });
     }
 
-
-
-
     return (
         <div className="App d-flex container-fluid row">
             <div className="col col-sm-2 bg-dark pt-5">
@@ -191,7 +216,7 @@ function App() {
                 <FileSelector className="pb-5" files={filenames} name={"Choose a file ..."} onClick={requestFiles} onItemSelected={(file: any) => { setFileName(file) }} />
                 <h5>{message}</h5>
                 <button className="btn btn-success mt-5" onClick={getFileData}>Render</button>
-                <button className="btn btn-success mt-5" onClick={logCameraPosition}>Log position</button>
+
 
             </div>
             <div className="Rendering-window" id="view3d">
