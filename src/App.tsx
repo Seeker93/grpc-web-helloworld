@@ -10,9 +10,8 @@ import vtkColorTransferFunction from 'vtk.js/Sources/Rendering/Core/ColorTransfe
 import vtkPiecewiseFunction from 'vtk.js/Sources/Common/DataModel/PiecewiseFunction';
 import { VtkDataTypes } from 'vtk.js/Sources/Common/Core/DataArray/Constants';
 import logo from "./logo.svg";
-import { render } from 'react-dom';
 
-const { FileDetails, FilesRequest, CameraInfo } = require('./voxualize-protos/voxualize_pb.js');
+const { FileDetails, FilesRequest, CameraInfo, DimensionDetailsRequest } = require('./voxualize-protos/voxualize_pb.js');
 const { GreeterClient } = require('./voxualize-protos/voxualize_grpc_web_pb.js');
 
 
@@ -23,7 +22,9 @@ function App() {
     const [rawArray, setRawArray] = useState([])
     const [loading, setLoading] = useState(false)
     const [totalBytes, setTotalBytes] = useState(0);
-
+    const [dimensionX, setDimensionX] = useState(0);
+    const [dimensionY, setDimensionY] = useState(0);
+    const [dimensionZ, setDimensionZ] = useState(0);
 
 
     var client = new GreeterClient('http://' + window.location.hostname + ':8080', null, null);
@@ -33,12 +34,10 @@ function App() {
         return new Float32Array(slicedArray.buffer);
     }
 
-
     useEffect(() => {
-        if (totalBytes === 41680896) {
+        if (totalBytes >= 5242880) {
             renderDataCube()
         }
-
     }, [totalBytes]);
 
     function concatArrays() { // a, b TypedArray of same type
@@ -67,7 +66,7 @@ function App() {
         setLoading(true)
 
         function initCubeVolume() {
-            var width = 256, height = 256, depth = 159;
+            let width = dimensionX; let height = dimensionY; let depth = dimensionZ;
             var rawValues = concatArrays()
             var values = convertBlock(rawValues);
             var scalars = vtkDataArray.newInstance({
@@ -95,12 +94,13 @@ function App() {
             var fullScreenRenderer = vtkFullScreenRenderWindow.newInstance({
                 rootContainer: view3d,
                 containerStyle: {
-                    height: '75%',
-                    width: '75%',
+                    height: '60%',
+                    width: '60%',
+                    padding: '10px'
                 },
                 background: [220, 185, 152]
             });
-            view3d.addEventListener('mouseup', ()=>debounceLog(renderer));
+            view3d.addEventListener('mouseup', () => debounceLog(renderer));
             var renderer = fullScreenRenderer.getRenderer();
             renderer.addVolume(volumeActor);
             renderer.getActiveCamera().elevation(30);
@@ -122,8 +122,6 @@ function App() {
             property.setUseGradientOpacity(0, false);
 
         }
-
-
 
         function newColorFunction() {
             var fun = vtkColorTransferFunction.newInstance();
@@ -150,8 +148,15 @@ function App() {
 
         else {
             setLoading(true)
+            var request = new DimensionDetailsRequest();
+            client.getDimensionDetails(request, {}, (err: any, response: any) => {
+                let dimensionsArray = response.getDimensionsLodList()
+                setDimensionX(dimensionsArray[0])
+                setDimensionY(dimensionsArray[1])
+                setDimensionZ(dimensionsArray[2])
+            })
 
-            var request = new FileDetails();
+            request = new FileDetails();
             request.setFileName(filename);
             var chooseFileClient = client.chooseFile(request, {})
             chooseFileClient.on('data', (response: any, err: any) => {
@@ -165,18 +170,18 @@ function App() {
         }
     }
 
-    // const debounce = (func, delay) => {
-    //     let debounceTimer
-    //     return function () {
-    //         const context = this
-    //         const args = arguments
-    //         clearTimeout(debounceTimer)
-    //         debounceTimer
-    //             = setTimeout(() => func.apply(context, args), delay)
-    //     }
-    // }
+    const debounce = (func, delay) => {
+        let debounceTimer
+        return function () {
+            const context = this
+            const args = arguments
+            clearTimeout(debounceTimer)
+            debounceTimer
+                = setTimeout(() => func.apply(context, args), delay)
+        }
+    }
 
-    var debounceLog = (thisRenderer: any) => {
+    var debounceLog = (thisRenderer: any) => debounce(new function () {
         var request = new CameraInfo();
         const positionList = thisRenderer.getActiveCamera().getPosition()
         const focalPointList = thisRenderer.getActiveCamera().getFocalPoint()
@@ -192,7 +197,7 @@ function App() {
                 console.log(err)
             }
         })
-    }
+    }, 250)
 
 
     const requestFiles = () => {
@@ -216,8 +221,6 @@ function App() {
                 <FileSelector className="pb-5" files={filenames} name={"Choose a file ..."} onClick={requestFiles} onItemSelected={(file: any) => { setFileName(file) }} />
                 <h5>{message}</h5>
                 <button className="btn btn-success mt-5" onClick={getFileData}>Render</button>
-
-
             </div>
             <div className="Rendering-window" id="view3d">
                 {loading &&
@@ -231,4 +234,4 @@ function App() {
 
 }
 
-export default App;
+export default App
