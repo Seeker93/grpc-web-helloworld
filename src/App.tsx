@@ -36,8 +36,9 @@ function App() {
 
     useEffect(() => {
         if (totalBytes === 5242880) {
-           // renderDataCube()
-        }
+            renderDataCube()
+         }
+        
     }, [totalBytes]);
 
     function concatArrays() { // a, b TypedArray of same type
@@ -140,14 +141,13 @@ function App() {
         setLoading(false)
     }
 
-    const getFileData = () => {
-
+    const onFileChosen = (filename: any) =>{
+        setFileName(filename)
         if (filename === null || filename === '') {
             setLoading(false)
         }
 
         else {
-            //setLoading(true)
             var request = new FileDetails();
             request.setFileName(filename);
             client.chooseFile(request, {}, (err: any, response: any) => {
@@ -163,17 +163,23 @@ function App() {
                 }
             })
 
-            var renderFileRequest = new Dummy();
-            var renderFileClient = client.getModelData(renderFileRequest, {})
-
-            renderFileClient.on('data', (response: any, err: any) => {
-                console.log(response.getBytes())
-                if (err) {
-                    setLoading(false)
-                }
-            }
-            )
         }
+    }
+
+
+    const renderFile = ()=>{
+        setLoading(true)
+        var renderFileRequest = new Dummy();
+        var renderFileClient = client.getModelData(renderFileRequest, {})
+
+        renderFileClient.on('data', (response: any, err: any) => {
+            setRawArray(rawArray => rawArray.concat(response.getBytes()))
+            setTotalBytes(totalBytes => totalBytes + response.getNumBytes())
+            if (err) {
+                setLoading(false)
+            }
+        }
+        )
     }
 
     const debounce = (func, delay) => {
@@ -224,9 +230,9 @@ function App() {
         <div className="App d-flex container-fluid row">
             <div className="col col-sm-2 bg-dark pt-5">
                 <h3 className="pb-5 text-light">Voxualize</h3>
-                <FileSelector className="pb-5" files={filenames} name={"Choose a file ..."} onClick={requestFiles} onItemSelected={(file: any) => { setFileName(file) }} />
+                <FileSelector className="pb-5" files={filenames} name={"Choose a file ..."} onClick={requestFiles} onItemSelected={(file: any) => { onFileChosen(file) }} />
                 <h5>{message}</h5>
-                <button className="btn btn-success mt-5" onClick={getFileData}>Render</button>
+                <button className="btn btn-success mt-5" onClick={renderFile}>Render</button>
             </div>
             <div className="Rendering-window" id="view3d">
                 {loading &&
