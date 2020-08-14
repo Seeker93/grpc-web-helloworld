@@ -11,7 +11,7 @@ import vtkPiecewiseFunction from 'vtk.js/Sources/Common/DataModel/PiecewiseFunct
 import { VtkDataTypes } from 'vtk.js/Sources/Common/Core/DataArray/Constants';
 import logo from "./logo.svg";
 
-const { FileDetails, FilesRequest, CameraInfo, DimensionDetailsRequest } = require('./voxualize-protos/voxualize_pb.js');
+const { FileDetails, FilesRequest, CameraInfo, Dummy } = require('./voxualize-protos/voxualize_pb.js');
 const { GreeterClient } = require('./voxualize-protos/voxualize_grpc_web_pb.js');
 
 
@@ -35,8 +35,8 @@ function App() {
     }
 
     useEffect(() => {
-        if (totalBytes >= 5242880) {
-            renderDataCube()
+        if (totalBytes === 5242880) {
+           // renderDataCube()
         }
     }, [totalBytes]);
 
@@ -147,21 +147,27 @@ function App() {
         }
 
         else {
-            setLoading(true)
-            var request = new DimensionDetailsRequest();
-            client.getDimensionDetails(request, {}, (err: any, response: any) => {
-                let dimensionsArray = response.getDimensionsLodList()
-                setDimensionX(dimensionsArray[0])
-                setDimensionY(dimensionsArray[1])
-                setDimensionZ(dimensionsArray[2])
+            //setLoading(true)
+            var request = new FileDetails();
+            request.setFileName(filename);
+            client.chooseFile(request, {}, (err: any, response: any) => {
+                if (err) {
+                    console.log(err)
+                }
+                else {
+                    let dimensionsArray = response.getDimensionsLodList()
+                    console.log(dimensionsArray)
+                    setDimensionX(dimensionsArray[0])
+                    setDimensionY(dimensionsArray[1])
+                    setDimensionZ(dimensionsArray[2])
+                }
             })
 
-            request = new FileDetails();
-            request.setFileName(filename);
-            var chooseFileClient = client.chooseFile(request, {})
-            chooseFileClient.on('data', (response: any, err: any) => {
-                setRawArray(rawArray => rawArray.concat(response.getBytes()))
-                setTotalBytes(totalBytes => totalBytes + response.getNumBytes())
+            var renderFileRequest = new Dummy();
+            var renderFileClient = client.getModelData(renderFileRequest, {})
+
+            renderFileClient.on('data', (response: any, err: any) => {
+                console.log(response.getBytes())
                 if (err) {
                     setLoading(false)
                 }
