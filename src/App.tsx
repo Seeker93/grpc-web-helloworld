@@ -12,6 +12,7 @@ import { VtkDataTypes } from 'vtk.js/Sources/Common/Core/DataArray/Constants';
 import logo from "./logo.svg";
 
 const { FileDetails, FilesRequest, CameraInfo, Dummy } = require('./voxualize-protos/voxualize_pb.js');
+const { GreeterPromiseClient } = require('./voxualize-protos/voxualize_grpc_web_pb.js');
 const { GreeterClient } = require('./voxualize-protos/voxualize_grpc_web_pb.js');
 
 
@@ -26,9 +27,12 @@ function App() {
     const [dimensionY, setDimensionY] = useState(0);
     const [dimensionZ, setDimensionZ] = useState(0);
 
+    //Looks like we have to use both clients since the promise based client does not seem to work for streams
 
-    var client = new GreeterClient('http://' + window.location.hostname + ':8080', null, null);
-
+    var client = new GreeterPromiseClient('http://' + window.location.hostname + ':8080', null, null);
+    var callbackClient = new GreeterClient('http://' + window.location.hostname + ':8080', null, null);
+    
+    
     const convertBlock = (incomingData) => {
         const slicedArray = incomingData.slice();
         return new Float32Array(slicedArray.buffer);
@@ -37,8 +41,8 @@ function App() {
     useEffect(() => {
         if (totalBytes === 5242880) {
             renderDataCube()
-         }
-        
+        }
+
     }, [totalBytes]);
 
     function concatArrays() { // a, b TypedArray of same type
@@ -141,48 +145,42 @@ function App() {
         setLoading(false)
     }
 
-    const onFileChosen = (filename: any) =>{
+    const onFileChosen = (filename: any) => {
         setFileName(filename)
         if (filename === null || filename === '') {
             setLoading(false)
         }
-
-        else {
-            var request = new FileDetails();
-            request.setFileName(filename);
-            client.chooseFile(request, {}, (err: any, response: any) => {
-                if (err) {
-                    console.log(err)
-                }
-                else {
-                    let dimensionsArray = response.getDimensionsLodList()
-                    console.log(dimensionsArray)
-                    setDimensionX(dimensionsArray[0])
-                    setDimensionY(dimensionsArray[1])
-                    setDimensionZ(dimensionsArray[2])
-                }
-            })
-
-        }
     }
 
 
-    const renderFile = ()=>{
+    const renderFile = async() => {
         setLoading(true)
-        var renderFileRequest = new Dummy();
-        var renderFileClient = client.getModelData(renderFileRequest, {})
 
-        renderFileClient.on('data', (response: any, err: any) => {
-            setRawArray(rawArray => rawArray.concat(response.getBytes()))
-            setTotalBytes(totalBytes => totalBytes + response.getNumBytes())
-            if (err) {
-                setLoading(false)
+        var request = new FileDetails();
+        request.setFileName(filename);
+        await client.chooseFile(request, {}).then((response: any) => {
+            let dimensionsArray = response.getDimensionsLodList()
+            console.log(dimensionsArray)
+            setDimensionX(dimensionsArray[0])
+            setDimensionY(dimensionsArray[1])
+            setDimensionZ(dimensionsArray[2])
+        }).catch((err: any) => { console.log(err) }).then(() => {
+
+            var renderFileRequest = new Dummy();
+            var renderFileClient = client.getModelData(renderFileRequest, {})
+
+            renderFileClient.on('data', (response: any, err: any) => {
+                setRawArray(rawArray => rawArray.concat(response.getBytes()))
+                setTotalBytes(totalBytes => totalBytes + response.getNumBytes())
+                if (err) {
+                    setLoading(false)
+                }
             }
-        }
-        )
+            )
+        }).catch((err: any) => console.log(err))
     }
 
-    const debounce = (func, delay) => {
+    const debounce = (func:any, delay:number) => {
         let debounceTimer
         return function () {
             const context = this
@@ -201,7 +199,7 @@ function App() {
         console.log("Focal point: " + focalPointList)
         request.setPositionList(positionList)
         request.setFocalPointList(focalPointList)
-        client.getHighQualityRender(request, {}, (err: any, response: any) => {
+        callbackClient.getHighQualityRender(request, {}, (err: any, response: any) => {
             if (response) {
                 console.log(response)
             }
@@ -209,21 +207,14 @@ function App() {
                 console.log(err)
             }
         })
+
     }, 250)
 
 
     const requestFiles = () => {
         var request = new FilesRequest();
         request.setUselessMessage("This is a useless message");
-
-        client.listFiles(request, {}, (err: any, response: any) => {
-            if (response) {
-                setFileNames(response.getFilesList());
-            }
-            else {
-                setMessage('Cannot contact server at this time')
-            }
-        });
+        client.listFiles(request, {}).then((response: any) => setFileNames(response.getFilesList())).catch((err: any) => { console.log(err) });
     }
 
     return (
