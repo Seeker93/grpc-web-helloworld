@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { FileSelector } from './components/FileSelector'
 import './App.css';
 import vtkFullScreenRenderWindow from 'vtk.js/Sources/Rendering/Misc/FullScreenRenderWindow';
@@ -9,6 +9,7 @@ import vtkVolumeMapper from 'vtk.js/Sources/Rendering/Core/VolumeMapper';
 import vtkColorTransferFunction from 'vtk.js/Sources/Rendering/Core/ColorTransferFunction';
 import vtkPiecewiseFunction from 'vtk.js/Sources/Common/DataModel/PiecewiseFunction';
 import { VtkDataTypes } from 'vtk.js/Sources/Common/Core/DataArray/Constants';
+
 import logo from "./logo.svg";
 
 const { FileDetails, FilesRequest, CameraInfo, Dummy } = require('./voxualize-protos/voxualize_pb.js');
@@ -16,8 +17,8 @@ const { GreeterPromiseClient } = require('./voxualize-protos/voxualize_grpc_web_
 const { GreeterClient } = require('./voxualize-protos/voxualize_grpc_web_pb.js');
 
 
+
 function App() {
-    const [message, setMessage] = useState('')
     const [filename, setFileName] = useState('')
     const [filenames, setFileNames] = useState([])
     const [rawArray, setRawArray] = useState([])
@@ -26,13 +27,18 @@ function App() {
     const [dimensionX, setDimensionX] = useState(0);
     const [dimensionY, setDimensionY] = useState(0);
     const [dimensionZ, setDimensionZ] = useState(0);
+    const [count, setCount] = useState(0);
+
+    const renderWindowRef = useRef(null);
+    const widthRef = useRef(0);
+    const heightRef = useRef(0);
 
     //Looks like we have to use both clients since the promise based client does not seem to work for streams
 
     var client = new GreeterPromiseClient('http://' + window.location.hostname + ':8080', null, null);
     var callbackClient = new GreeterClient('http://' + window.location.hostname + ':8080', null, null);
-    
-    
+
+
     const convertBlock = (incomingData) => {
         const slicedArray = incomingData.slice();
         return new Float32Array(slicedArray.buffer);
@@ -106,6 +112,7 @@ function App() {
                 background: [220, 185, 152]
             });
             view3d.addEventListener('mouseup', () => debounceLog(renderer));
+            fullScreenRenderer.setResizeCallback(() => setCount(count => count + 1))
             var renderer = fullScreenRenderer.getRenderer();
             renderer.addVolume(volumeActor);
             renderer.getActiveCamera().elevation(30);
@@ -153,7 +160,7 @@ function App() {
     }
 
 
-    const renderFile = async() => {
+    const renderFile = async () => {
         setLoading(true)
 
         var request = new FileDetails();
@@ -180,9 +187,9 @@ function App() {
         }).catch((err: any) => console.log(err))
     }
 
-    const debounce = (func:any, delay:number) => {
+    const debounce = (func: any, delay: number) => {
         let debounceTimer
-        return function () {
+        return function() {
             const context = this
             const args = arguments
             clearTimeout(debounceTimer)
@@ -190,15 +197,26 @@ function App() {
                 = setTimeout(() => func.apply(context, args), delay)
         }
     }
+  
 
-    var debounceLog = (thisRenderer: any) => debounce(new function () {
+    const debounceLog = (thisRenderer: any) => debounce(new function() {
         var request = new CameraInfo();
+        setCount(count + 1)
         const positionList = thisRenderer.getActiveCamera().getPosition()
         const focalPointList = thisRenderer.getActiveCamera().getFocalPoint()
-        console.log("Position: " + positionList)
-        console.log("Focal point: " + focalPointList)
+        widthRef.current = renderWindowRef.current.offsetWidth
+        heightRef.current = renderWindowRef.current.offsetHeight
+
         request.setPositionList(positionList)
         request.setFocalPointList(focalPointList)
+        request.setWindowWidth(widthRef.current)
+        request.setWindowHeight(heightRef.current)
+        
+        console.log("Position: " + positionList)
+        console.log("Focal point: " + focalPointList)
+        console.log("Width: " + widthRef.current)
+        console.log("Height: " + heightRef.current)
+
         callbackClient.getHighQualityRender(request, {}, (err: any, response: any) => {
             if (response) {
                 console.log(response)
@@ -222,10 +240,10 @@ function App() {
             <div className="col col-sm-2 bg-dark pt-5">
                 <h3 className="pb-5 text-light">Voxualize</h3>
                 <FileSelector className="pb-5" files={filenames} name={"Choose a file ..."} onClick={requestFiles} onItemSelected={(file: any) => { onFileChosen(file) }} />
-                <h5>{message}</h5>
+                <div></div>
                 <button className="btn btn-success mt-5" onClick={renderFile}>Render</button>
             </div>
-            <div className="Rendering-window" id="view3d">
+            <div className="rendering-window" id="view3d" ref={renderWindowRef}>
                 {loading &&
                     <img src={logo} className="App-logo" alt="logo" />
                 }
