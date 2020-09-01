@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { FileSelector } from './components/FileSelector'
+import { AxisSlider } from './components/AxisSlider'
 import './App.css';
 import vtkFullScreenRenderWindow from 'vtk.js/Sources/Rendering/Misc/FullScreenRenderWindow';
 import vtkImageData from 'vtk.js/Sources/Common/DataModel/ImageData';
@@ -8,6 +9,8 @@ import vtkVolume from 'vtk.js/Sources/Rendering/Core/Volume';
 import vtkVolumeMapper from 'vtk.js/Sources/Rendering/Core/VolumeMapper';
 import vtkColorTransferFunction from 'vtk.js/Sources/Rendering/Core/ColorTransferFunction';
 import vtkPiecewiseFunction from 'vtk.js/Sources/Common/DataModel/PiecewiseFunction';
+import vtkImageMapper from 'vtk.js/Sources/Rendering/Core/ImageMapper';
+import vtkImageCroppingRegionsWidget from 'vtk.js/Sources/Interaction/Widgets/ImageCroppingRegionsWidget';
 import { VtkDataTypes } from 'vtk.js/Sources/Common/Core/DataArray/Constants';
 
 import logo from "./logo.svg";
@@ -27,7 +30,11 @@ function App() {
     const [dimensionX, setDimensionX] = useState(0);
     const [dimensionY, setDimensionY] = useState(0);
     const [dimensionZ, setDimensionZ] = useState(0);
-    const [count, setCount] = useState(0);
+    const [cubeLoaded, setCubeLoaded] = useState(false)
+    const [extent, setExtent] = useState(null)
+    const [renderWindowState, setRenderWindow] = useState(null)
+    const [widgetState, setWidgetState] = useState(null)
+    const [planesState, setPlaneState] = useState(null)
 
     const renderWindowRef = useRef(null);
     const widthRef = useRef(0);
@@ -47,6 +54,8 @@ function App() {
     useEffect(() => {
         if (totalBytes === 5242880) {
             renderDataCube()
+            setCubeLoaded(true)
+
         }
 
     }, [totalBytes]);
@@ -77,7 +86,9 @@ function App() {
         setLoading(true)
 
         function initCubeVolume() {
+
             let width = dimensionX; let height = dimensionY; let depth = dimensionZ;
+
             var rawValues = concatArrays()
             var values = convertBlock(rawValues);
             var scalars = vtkDataArray.newInstance({
@@ -90,11 +101,14 @@ function App() {
             var imageData = vtkImageData.newInstance();
             imageData.setOrigin(0, 0, 0);
             imageData.setSpacing(1.0, (width / height).toFixed(2), (width / depth).toFixed(2));
-            imageData.setExtent(0, width - 1, 0, height - 1, 0, depth - 1);
+            imageData.setExtent(0, dimensionX - 1, 0, dimensionY - 1, 0, dimensionZ - 1);
             imageData.getPointData().setScalars(scalars);
 
+            setExtent(imageData.getExtent());
+            setPlaneState([0, dimensionX, 0, dimensionY, 0, dimensionZ])
             var volumeMapper = vtkVolumeMapper.newInstance();
             volumeMapper.setInputData(imageData);
+
             volumeMapper.setBlendModeToComposite();
             var volumeActor = vtkVolume.newInstance();
             volumeActor.setMapper(volumeMapper);
@@ -102,6 +116,7 @@ function App() {
             initProps(volumeActor.getProperty());
 
             var view3d = document.getElementById("view3d");
+
             var fullScreenRenderer = vtkFullScreenRenderWindow.newInstance({
                 rootContainer: view3d,
                 containerStyle: {
@@ -112,19 +127,35 @@ function App() {
                 background: [220, 185, 152]
             });
             view3d.addEventListener('mouseup', () => debounceLog(renderer));
-            fullScreenRenderer.setResizeCallback(() => setCount(count => count + 1))
+
             var renderer = fullScreenRenderer.getRenderer();
             renderer.addVolume(volumeActor);
             renderer.getActiveCamera().elevation(30);
             renderer.getActiveCamera().azimuth(45);
-
-
             renderer.resetCamera();
 
-            var renderWindow = fullScreenRenderer.getRenderWindow();
+            let renderWindow = fullScreenRenderer.getRenderWindow();
+            setRenderWindow(renderWindow)
             const interactor = fullScreenRenderer.getRenderWindow().getInteractor();
             interactor.bindEvents(view3d)
+            interactor.setDesiredUpdateRate(15.0);
+
+            const widget = vtkImageCroppingRegionsWidget.newInstance();
+            widget.setInteractor(renderWindow.getInteractor());
+
+            widget.setVolumeMapper(volumeMapper);
+            widget.setHandleSize(25); // in pixels
+            widget.setEnabled(true);
+
+            // demonstration of setting various types of handles
+            widget.setFaceHandlesEnabled(true);
+            widget.setCornerHandlesEnabled(true);
+            widget.onCroppingPlanesChanged((planes: any) => {  })
+            setWidgetState(widget)
+
             renderWindow.render();
+            renderWindow.render();
+
         }
 
         function initProps(property) {
@@ -159,6 +190,9 @@ function App() {
         }
     }
 
+    const onPlanesChanged = (planes: any) => {
+        return planes
+    }
 
     const renderFile = async () => {
         setLoading(true)
@@ -189,7 +223,7 @@ function App() {
 
     const debounce = (func: any, delay: number) => {
         let debounceTimer
-        return function() {
+        return function () {
             const context = this
             const args = arguments
             clearTimeout(debounceTimer)
@@ -197,11 +231,11 @@ function App() {
                 = setTimeout(() => func.apply(context, args), delay)
         }
     }
-  
 
-    const debounceLog = (thisRenderer: any) => debounce(new function() {
+
+
+    const debounceLog = (thisRenderer: any) => debounce(new function () {
         var request = new CameraInfo();
-        setCount(count + 1)
         const positionList = thisRenderer.getActiveCamera().getPosition()
         const focalPointList = thisRenderer.getActiveCamera().getFocalPoint()
         widthRef.current = renderWindowRef.current.offsetWidth
@@ -211,7 +245,7 @@ function App() {
         request.setFocalPointList(focalPointList)
         request.setWindowWidth(widthRef.current)
         request.setWindowHeight(heightRef.current)
-        
+
         console.log("Position: " + positionList)
         console.log("Focal point: " + focalPointList)
         console.log("Width: " + widthRef.current)
@@ -235,18 +269,25 @@ function App() {
         client.listFiles(request, {}).then((response: any) => setFileNames(response.getFilesList())).catch((err: any) => { console.log(err) });
     }
 
+
+
     return (
         <div className="App d-flex container-fluid row">
             <div className="col col-sm-2 bg-dark pt-5">
                 <h3 className="pb-5 text-light">Voxualize</h3>
                 <FileSelector className="pb-5" files={filenames} name={"Choose a file ..."} onClick={requestFiles} onItemSelected={(file: any) => { onFileChosen(file) }} />
                 <div></div>
+
                 <button className="btn btn-success mt-5" onClick={renderFile}>Render</button>
+                {cubeLoaded && <AxisSlider extent={extent} renderWindow={renderWindowState} widget={widgetState} planeArray={planesState} />}
+
             </div>
             <div className="rendering-window" id="view3d" ref={renderWindowRef}>
+
                 {loading &&
                     <img src={logo} className="App-logo" alt="logo" />
                 }
+
             </div>
 
         </div>
