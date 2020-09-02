@@ -60,10 +60,8 @@ const App = observer(() => {
     const widthRef = useRef(0);
     const heightRef = useRef(0);
 
-    //Looks like we have to use both clients since the promise based client does not seem to work for streams
 
     var client = new GreeterPromiseClient('http://' + window.location.hostname + ':8080', null, null);
-    var callbackClient = new GreeterClient('http://' + window.location.hostname + ':8080', null, null);
 
 
     const convertBlock = (incomingData) => {
@@ -238,7 +236,7 @@ const App = observer(() => {
 
 
 
-    const debounceLog = (thisRenderer: any) => debounce(new function() {
+    const debounceLog = (thisRenderer: any) => debounce(new function () {
         var request = new CameraInfo();
         const positionList = thisRenderer.getActiveCamera().getPosition()
         const focalPointList = thisRenderer.getActiveCamera().getFocalPoint()
@@ -254,12 +252,13 @@ const App = observer(() => {
         console.log("Focal point: " + focalPointList)
         console.log("Width: " + widthRef.current)
         console.log("Height: " + heightRef.current)
+        var renderClient = client.getHighQualityRender(request, {})
 
-        callbackClient.getHighQualityRender(request, {}, (err: any, response: any) => {
+        renderClient.on('data', (response: any, err: any) => {
             if (response) {
                 console.log(response)
-            }
-            else {
+            };
+            if (err) {
                 console.log(err)
             }
         })
@@ -292,7 +291,7 @@ const App = observer(() => {
 
             </div>
             <div className="fixed-bottom bg-dark h-25 justify-content-center">
-            {cubeLoaded && <AxisSlider extent={extent} localState={localState} />}
+                {cubeLoaded && <AxisSlider extent={extent} localState={localState} />}
 
 
             </div>
