@@ -9,19 +9,42 @@ import vtkVolume from 'vtk.js/Sources/Rendering/Core/Volume';
 import vtkVolumeMapper from 'vtk.js/Sources/Rendering/Core/VolumeMapper';
 import vtkColorTransferFunction from 'vtk.js/Sources/Rendering/Core/ColorTransferFunction';
 import vtkPiecewiseFunction from 'vtk.js/Sources/Common/DataModel/PiecewiseFunction';
-import vtkImageMapper from 'vtk.js/Sources/Rendering/Core/ImageMapper';
 import vtkImageCroppingRegionsWidget from 'vtk.js/Sources/Interaction/Widgets/ImageCroppingRegionsWidget';
 import { VtkDataTypes } from 'vtk.js/Sources/Common/Core/DataArray/Constants';
+import vtkImageCropFilter from 'vtk.js/Sources/Filters/General/ImageCropFilter';
+import vtkInteractorStyleTrackballCamera from 'vtk.js/Sources/Interaction/Style/InteractorStyleTrackballCamera';
 
 import logo from "./logo.svg";
-
+import { observer, useLocalStore } from 'mobx-react'
+import { debounce } from './utils/helperFunctions'
 const { FileDetails, FilesRequest, CameraInfo, Dummy } = require('./voxualize-protos/voxualize_pb.js');
 const { GreeterPromiseClient } = require('./voxualize-protos/voxualize_grpc_web_pb.js');
 const { GreeterClient } = require('./voxualize-protos/voxualize_grpc_web_pb.js');
 
 
 
-function App() {
+const App = observer(() => {
+
+    const localState = useLocalStore(() => ({
+        widget: null,
+        planeState: null,
+        cropFilter: null,
+        renderWindow: null,
+        setPlaneState(plane: any) {
+            localState.planeState = plane
+        },
+        setWidgetState(widget: any) {
+            localState.widget = widget
+        },
+        setCropFilter(cropFilter: any) {
+            localState.cropFilter = cropFilter
+        },
+        setRenderWindow(window: any) {
+            localState.renderWindow = window
+        }
+    }))
+
+
     const [filename, setFileName] = useState('')
     const [filenames, setFileNames] = useState([])
     const [rawArray, setRawArray] = useState([])
@@ -32,9 +55,6 @@ function App() {
     const [dimensionZ, setDimensionZ] = useState(0);
     const [cubeLoaded, setCubeLoaded] = useState(false)
     const [extent, setExtent] = useState(null)
-    const [renderWindowState, setRenderWindow] = useState(null)
-    const [widgetState, setWidgetState] = useState(null)
-    const [planesState, setPlaneState] = useState(null)
 
     const renderWindowRef = useRef(null);
     const widthRef = useRef(0);
@@ -55,7 +75,6 @@ function App() {
         if (totalBytes === 5242880) {
             renderDataCube()
             setCubeLoaded(true)
-
         }
 
     }, [totalBytes]);
@@ -66,7 +85,6 @@ function App() {
         // Get the total length of all arrays.
         let length = 0;
         array.forEach(item => {
-
             length += item.length;
         });
 
@@ -77,10 +95,9 @@ function App() {
             mergedArray.set(item, offset);
             offset += item.length;
         });
-
-        // Should print an array with length 90788 (5x 16384 + 8868 your source arrays)
         return mergedArray
     }
+
 
     const renderDataCube = () => {
         setLoading(true)
@@ -101,18 +118,23 @@ function App() {
             var imageData = vtkImageData.newInstance();
             imageData.setOrigin(0, 0, 0);
             imageData.setSpacing(1.0, (width / height).toFixed(2), (width / depth).toFixed(2));
-            imageData.setExtent(0, dimensionX - 1, 0, dimensionY - 1, 0, dimensionZ - 1);
+            localState.setPlaneState([0, dimensionX - 1, 0, dimensionY - 1, 0, dimensionZ - 1])
+
+            imageData.setExtent(localState.planeState);
             imageData.getPointData().setScalars(scalars);
 
             setExtent(imageData.getExtent());
-            setPlaneState([0, dimensionX, 0, dimensionY, 0, dimensionZ])
-            var volumeMapper = vtkVolumeMapper.newInstance();
-            volumeMapper.setInputData(imageData);
 
-            volumeMapper.setBlendModeToComposite();
+            const cropFilter = vtkImageCropFilter.newInstance();
+            var mapper = vtkVolumeMapper.newInstance();
             var volumeActor = vtkVolume.newInstance();
-            volumeActor.setMapper(volumeMapper);
 
+            cropFilter.setInputData(imageData);
+            mapper.setInputConnection(cropFilter.getOutputPort())
+            mapper.setBlendModeToComposite();
+            cropFilter.setCroppingPlanes(...imageData.getExtent())
+
+            volumeActor.setMapper(mapper);
             initProps(volumeActor.getProperty());
 
             var view3d = document.getElementById("view3d");
@@ -122,6 +144,7 @@ function App() {
                 containerStyle: {
                     height: '60%',
                     width: '60%',
+                    justifyContent: 'center',
                     padding: '10px'
                 },
                 background: [220, 185, 152]
@@ -135,27 +158,22 @@ function App() {
             renderer.resetCamera();
 
             let renderWindow = fullScreenRenderer.getRenderWindow();
-            setRenderWindow(renderWindow)
-            const interactor = fullScreenRenderer.getRenderWindow().getInteractor();
-            interactor.bindEvents(view3d)
-            interactor.setDesiredUpdateRate(15.0);
-
+            localState.setRenderWindow(renderWindow)
+            const interactor = vtkInteractorStyleTrackballCamera.newInstance();
+            renderWindow.getInteractor().setInteractorStyle(interactor);
+            //interactor.bindEvents(view3d)
             const widget = vtkImageCroppingRegionsWidget.newInstance();
+
             widget.setInteractor(renderWindow.getInteractor());
 
-            widget.setVolumeMapper(volumeMapper);
-            widget.setHandleSize(25); // in pixels
+            widget.setVolumeMapper(mapper);
+            widget.setHandleSize(15); // in pixels
             widget.setEnabled(true);
 
-            // demonstration of setting various types of handles
-            widget.setFaceHandlesEnabled(true);
             widget.setCornerHandlesEnabled(true);
-            widget.onCroppingPlanesChanged((planes: any) => {  })
-            setWidgetState(widget)
-
+            localState.setWidgetState(widget)
+            localState.setCropFilter(cropFilter)
             renderWindow.render();
-            renderWindow.render();
-
         }
 
         function initProps(property) {
@@ -190,9 +208,6 @@ function App() {
         }
     }
 
-    const onPlanesChanged = (planes: any) => {
-        return planes
-    }
 
     const renderFile = async () => {
         setLoading(true)
@@ -221,20 +236,9 @@ function App() {
         }).catch((err: any) => console.log(err))
     }
 
-    const debounce = (func: any, delay: number) => {
-        let debounceTimer
-        return function () {
-            const context = this
-            const args = arguments
-            clearTimeout(debounceTimer)
-            debounceTimer
-                = setTimeout(() => func.apply(context, args), delay)
-        }
-    }
 
 
-
-    const debounceLog = (thisRenderer: any) => debounce(new function () {
+    const debounceLog = (thisRenderer: any) => debounce(new function() {
         var request = new CameraInfo();
         const positionList = thisRenderer.getActiveCamera().getPosition()
         const focalPointList = thisRenderer.getActiveCamera().getFocalPoint()
@@ -277,9 +281,7 @@ function App() {
                 <h3 className="pb-5 text-light">Voxualize</h3>
                 <FileSelector className="pb-5" files={filenames} name={"Choose a file ..."} onClick={requestFiles} onItemSelected={(file: any) => { onFileChosen(file) }} />
                 <div></div>
-
                 <button className="btn btn-success mt-5" onClick={renderFile}>Render</button>
-                {cubeLoaded && <AxisSlider extent={extent} renderWindow={renderWindowState} widget={widgetState} planeArray={planesState} />}
 
             </div>
             <div className="rendering-window" id="view3d" ref={renderWindowRef}>
@@ -289,11 +291,14 @@ function App() {
                 }
 
             </div>
+            <div className="fixed-bottom bg-dark h-25 justify-content-center">
+            {cubeLoaded && <AxisSlider extent={extent} localState={localState} />}
 
+
+            </div>
         </div>
     );
 
-
-}
+})
 
 export default App
