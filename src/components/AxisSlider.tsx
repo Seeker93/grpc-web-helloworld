@@ -47,12 +47,23 @@ export const AxisSlider = observer((props: any) => {
         localState.cropFilter.setCroppingPlanes(newPlaneArray)
     }
 
+    const onClickReset = () => {
+        localState.widget.setCroppingPlanes(...extent)
+        setnxValue(extent[0])
+        setxValue(extent[1])
+        setnyValue(extent[2])
+        setyValue(extent[3])
+        setnzValue(extent[4])
+        setzValue(extent[5])
+    }
+
+
     return (
         <div className={"slider pt-4"}>
             <h5 className="text-light">Adjust Axes</h5>
             <div className="row">
-                <h6 className="text-light pr-4">I:</h6>
-                <div className={"col-sm-5 text-white flex-start pr-4"}>
+                <h6 className="label text-white">I:</h6>
+                <div className={"col-sm-5 text-white flex-start mr-4"}>
                     <Slider
                         min={extent[0]}
                         max={extent[1]}
@@ -80,9 +91,9 @@ export const AxisSlider = observer((props: any) => {
                 </div>
             </div>
             <div className="row">
-                <h6 className="text-light pr-4">J:</h6>
+                <h6 className="label text-white">J:</h6>
 
-                <div className={"col-sm-5 text-white flex-start pr-4"}>
+                <div className={"col-sm-5 text-white flex-start mr-4"}>
 
                     <Slider
                         min={extent[2]}
@@ -110,8 +121,8 @@ export const AxisSlider = observer((props: any) => {
                 </div>
             </div>
             <div className="row">
-                <h6 className="text-light pr-4">K:</h6>
-                <div className={"col-sm-5 text-white flex-start pr-4"}>
+                <h6 className="label text-white">K:</h6>
+                <div className={"col-sm-5 text-white flex-start mr-4"}>
 
                     <Slider
                         min={extent[4]}
@@ -138,6 +149,8 @@ export const AxisSlider = observer((props: any) => {
                     />
                 </div>
             </div>
+            <button className={"btn btn-outline-secondary btn-sm d-flex justify-content-center mt-3"} onClick={onClickReset}>Reset to default</button>
+
         </div>
     );
 

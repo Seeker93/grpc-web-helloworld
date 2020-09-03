@@ -17,9 +17,9 @@ import vtkInteractorStyleTrackballCamera from 'vtk.js/Sources/Interaction/Style/
 import logo from "./logo.svg";
 import { observer, useLocalStore } from 'mobx-react'
 import { debounce } from './utils/helperFunctions'
+import { TransferFunctionSlider } from './components/TransferFunctionSlider';
 const { FileDetails, FilesRequest, CameraInfo, Dummy } = require('./voxualize-protos/voxualize_pb.js');
 const { GreeterPromiseClient } = require('./voxualize-protos/voxualize_grpc_web_pb.js');
-const { GreeterClient } = require('./voxualize-protos/voxualize_grpc_web_pb.js');
 
 
 
@@ -30,6 +30,8 @@ const App = observer(() => {
         planeState: null,
         cropFilter: null,
         renderWindow: null,
+        volumeActor: null,
+        colorTransferFunction: null,
         setPlaneState(plane: any) {
             localState.planeState = plane
         },
@@ -41,6 +43,12 @@ const App = observer(() => {
         },
         setRenderWindow(window: any) {
             localState.renderWindow = window
+        },
+        setVolumeActor(actor: any) {
+            localState.volumeActor = actor
+        },
+        setColorTransferFunction(fun: any) {
+            localState.colorTransferFunction = fun;
         }
     }))
 
@@ -134,6 +142,7 @@ const App = observer(() => {
 
             volumeActor.setMapper(mapper);
             initProps(volumeActor.getProperty());
+            localState.setVolumeActor(volumeActor)
 
             var view3d = document.getElementById("view3d");
 
@@ -185,6 +194,7 @@ const App = observer(() => {
 
         function newColorFunction() {
             var fun = vtkColorTransferFunction.newInstance();
+            localState.setColorTransferFunction(fun)
             fun.addRGBPoint(-0.0, 0.0, 0.0, 0.0);
             fun.addRGBPoint(0.16, 1.0, 1.0, 1.0);
             return fun;
@@ -291,9 +301,13 @@ const App = observer(() => {
                 }
 
             </div>
-            <div className="fixed-bottom bg-dark h-25 justify-content-center">
-                {cubeLoaded && <AxisSlider extent={extent} localState={localState} />}
-
+            <div className="fixed-bottom bg-dark h-25 justify-content-center row">
+                <div className={"col col-lg-9"}>
+                    {cubeLoaded && <AxisSlider extent={extent} localState={localState} />}
+                </div>
+                <div className={"col col-lg-3"}>
+                    {cubeLoaded && <TransferFunctionSlider localState={localState} />}
+                </div>
 
             </div>
         </div>
