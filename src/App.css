@@ -15,8 +15,7 @@
 }
 
 .rendering-window {
-  min-width: 60vw;
-  padding-top:2px;
+  padding-top:20px;
   display: flex;
   align-items: flex-start;
   margin-left:20%;

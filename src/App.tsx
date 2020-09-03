@@ -140,8 +140,8 @@ const App = observer(() => {
             var fullScreenRenderer = vtkFullScreenRenderWindow.newInstance({
                 rootContainer: view3d,
                 containerStyle: {
-                    height: '60%',
-                    width: '60%',
+                    height: '600px',
+                    width: '600px',
                     justifyContent: 'center',
                     padding: '10px'
                 },
@@ -159,7 +159,6 @@ const App = observer(() => {
             localState.setRenderWindow(renderWindow)
             const interactor = vtkInteractorStyleTrackballCamera.newInstance();
             renderWindow.getInteractor().setInteractorStyle(interactor);
-            //interactor.bindEvents(view3d)
             const widget = vtkImageCroppingRegionsWidget.newInstance();
 
             widget.setInteractor(renderWindow.getInteractor());
@@ -169,6 +168,8 @@ const App = observer(() => {
             widget.setEnabled(true);
 
             widget.setCornerHandlesEnabled(true);
+            widget.setEdgeHandlesEnabled(true);
+
             localState.setWidgetState(widget)
             localState.setCropFilter(cropFilter)
             renderWindow.render();

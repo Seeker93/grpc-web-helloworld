@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Slider } from "@blueprintjs/core";
 import { observer } from 'mobx-react'
 import './AxisSlider.css';
@@ -19,12 +19,25 @@ export const AxisSlider = observer((props: any) => {
 
     const onWidgetChanged = (planes: number[]) => {
         localState.cropFilter.setCroppingPlanes(planes)
-        setnxValue(localState.widget.getCroppingPlanes()[0])
-        setxValue(localState.widget.getCroppingPlanes()[1])
-        setnyValue(localState.widget.getCroppingPlanes()[2])
-        setyValue(localState.widget.getCroppingPlanes()[3])
-        setnzValue(localState.widget.getCroppingPlanes()[4])
-        setzValue(localState.widget.getCroppingPlanes()[5])
+        if (planes[0] > extent[0] && planes[0] < extent[1]) {
+            setnxValue(localState.widget.getCroppingPlanes()[0])
+        }
+        if (planes[1] > extent[0] && planes[1] < extent[1]) {
+            setxValue(localState.widget.getCroppingPlanes()[1])
+        }
+        if (planes[2] > extent[2] && planes[2] < extent[3]) {
+            setnyValue(localState.widget.getCroppingPlanes()[2])
+        }
+        if (planes[3] > extent[2] && planes[3] < extent[3]) {
+            setyValue(localState.widget.getCroppingPlanes()[3])
+        }
+        if (planes[4] > extent[4] && planes[4] < extent[5]) {
+            setnzValue(localState.widget.getCroppingPlanes()[4])
+        }
+        if (planes[5] > extent[4] && planes[5] < extent[5]) {
+            setzValue(localState.widget.getCroppingPlanes()[5])
+        }
+
     }
 
     const onCoordChange = (value: number, index: number) => {
@@ -37,8 +50,8 @@ export const AxisSlider = observer((props: any) => {
     return (
         <div className={"slider pt-4"}>
             <h5 className="text-light">Adjust Axes</h5>
-            <div className="row">   
-            <h6 className="text-light pr-4">I:</h6>
+            <div className="row">
+                <h6 className="text-light pr-4">I:</h6>
                 <div className={"col-sm-5 text-white flex-start pr-4"}>
                     <Slider
                         min={extent[0]}
@@ -67,10 +80,10 @@ export const AxisSlider = observer((props: any) => {
                 </div>
             </div>
             <div className="row">
-            <h6 className="text-light pr-4">J:</h6>
+                <h6 className="text-light pr-4">J:</h6>
 
                 <div className={"col-sm-5 text-white flex-start pr-4"}>
-            
+
                     <Slider
                         min={extent[2]}
                         max={extent[3]}
@@ -83,7 +96,7 @@ export const AxisSlider = observer((props: any) => {
                     />
                 </div>
                 <div className={"col-sm-5 text-white flex-end"}>
-                  
+
                     <Slider
                         min={extent[2]}
                         max={extent[3]}
@@ -97,9 +110,9 @@ export const AxisSlider = observer((props: any) => {
                 </div>
             </div>
             <div className="row">
-            <h6 className="text-light pr-4">K:</h6>
+                <h6 className="text-light pr-4">K:</h6>
                 <div className={"col-sm-5 text-white flex-start pr-4"}>
-            
+
                     <Slider
                         min={extent[4]}
                         max={extent[5]}
