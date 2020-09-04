@@ -253,16 +253,22 @@ const App = observer(() => {
         const focalPointList = thisRenderer.getActiveCamera().getFocalPoint()
         widthRef.current = renderWindowRef.current.offsetWidth
         heightRef.current = renderWindowRef.current.offsetHeight
+        const viewUpList = thisRenderer.getActiveCamera().getViewUp()
+        const distance = this.Renderer.getActiveCamera().getDistance()
 
         request.setPositionList(positionList)
         request.setFocalPointList(focalPointList)
         request.setWindowWidth(widthRef.current)
         request.setWindowHeight(heightRef.current)
+        request.setViewUpList(viewUpList)
+        request.setDistance(distance)
 
         console.log("Position: " + positionList)
         console.log("Focal point: " + focalPointList)
         console.log("Width: " + widthRef.current)
         console.log("Height: " + heightRef.current)
+        console.log("ViewUp: " + viewUpList)
+        console.log("Distance: " + distance)
         var renderClient = client.getHighQualityRender(request, {})
 
         renderClient.on('data', (response: any, err: any) => {
