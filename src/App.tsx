@@ -85,6 +85,8 @@ const App = observer(() => {
 
     }, [totalBytes]);
 
+
+
     function concatArrays() { // a, b TypedArray of same type
         let array = rawArray
 
@@ -255,9 +257,11 @@ const App = observer(() => {
         heightRef.current = renderWindowRef.current.offsetHeight
         const viewUpList = thisRenderer.getActiveCamera().getViewUp()
         const distance = thisRenderer.getActiveCamera().getDistance()
-        const rgba = [localState.colorTransferFunction.getRedValue(0),localState.colorTransferFunction.getGreenValue(0),localState.colorTransferFunction.getBlueValue(0)]
+        const rgba = [localState.colorTransferFunction.getRedValue(0), localState.colorTransferFunction.getGreenValue(0), localState.colorTransferFunction.getBlueValue(0)]
         const alpha = localState.colorTransferFunction.getAlpha();
-        
+        const croppingPlanes = localState.cropFilter.getCroppingPlanes()
+
+        request.setCroppingPlanesList(croppingPlanes)
         request.setRgbaList(rgba)
         request.setAlpha(alpha)
         request.setPositionList(positionList)
@@ -275,6 +279,8 @@ const App = observer(() => {
         console.log("Distance: " + distance)
         console.log("rgb: " + rgba)
         console.log("Alpha: " + alpha)
+        console.log("Cropping planes: " + localState.cropFilter.getCroppingPlanes())
+        
         var renderClient = client.getHighQualityRender(request, {})
 
         renderClient.on('data', (response: any, err: any) => {
