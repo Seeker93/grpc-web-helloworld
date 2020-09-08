@@ -254,8 +254,12 @@ const App = observer(() => {
         widthRef.current = renderWindowRef.current.offsetWidth
         heightRef.current = renderWindowRef.current.offsetHeight
         const viewUpList = thisRenderer.getActiveCamera().getViewUp()
-        const distance = this.Renderer.getActiveCamera().getDistance()
-
+        const distance = thisRenderer.getActiveCamera().getDistance()
+        const rgba = [localState.colorTransferFunction.getRedValue(0),localState.colorTransferFunction.getGreenValue(0),localState.colorTransferFunction.getBlueValue(0)]
+        const alpha = localState.colorTransferFunction.getAlpha();
+        
+        request.setRgbaList(rgba)
+        request.setAlpha(alpha)
         request.setPositionList(positionList)
         request.setFocalPointList(focalPointList)
         request.setWindowWidth(widthRef.current)
@@ -269,6 +273,8 @@ const App = observer(() => {
         console.log("Height: " + heightRef.current)
         console.log("ViewUp: " + viewUpList)
         console.log("Distance: " + distance)
+        console.log("rgb: " + rgba)
+        console.log("Alpha: " + alpha)
         var renderClient = client.getHighQualityRender(request, {})
 
         renderClient.on('data', (response: any, err: any) => {

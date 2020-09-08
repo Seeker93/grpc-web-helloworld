@@ -16,6 +16,7 @@ export const TransferFunctionSlider = observer((props: any) => {
     const onRedChange = (value: number) => {
         setRed(value)
         localState.volumeActor.getProperty().setRGBTransferFunction(0, newColorFunction());
+        console.log(localState.volumeActor.getProperty().getRGBTransferFunction(0))
         localState.renderWindow.render()
     }
 
