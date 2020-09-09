@@ -61,7 +61,8 @@ const App = observer(() => {
     const [dimensionX, setDimensionX] = useState(0);
     const [dimensionY, setDimensionY] = useState(0);
     const [dimensionZ, setDimensionZ] = useState(0);
-    const [lodNumBytes, setLodNumBytes] = useState(0)
+    const [lodNumBytes, setLodNumBytes] = useState(0);
+    const [hqNumBytes, setHqNumBytes] = useState(0);
     const [cubeLoaded, setCubeLoaded] = useState(false)
     const [extent, setExtent] = useState(null)
 
@@ -283,15 +284,20 @@ const App = observer(() => {
         console.log("Alpha: " + alpha)
         console.log("Cropping planes: " + localState.cropFilter.getCroppingPlanes())
 
-        var renderClient = client.getHighQualityRender(request, {})
+        client.getHQRenderSize(request, {}).then((response: any) => {
+            setHqNumBytes(response.getSizeInBytes())
+        }).catch((err: any) => { console.log(err) }).then(() => {
+            var dummyRequest = new Dummy()
+            var renderClient = client.getHighQualityRender(dummyRequest, {})
 
-        renderClient.on('data', (response: any, err: any) => {
-            if (response) {
-                console.log(response)
-            };
-            if (err) {
-                console.log(err)
-            }
+            renderClient.on('data', (response: any, err: any) => {
+                if (response) {
+                    console.log(response)
+                };
+                if (err) {
+                    console.log(err)
+                }
+            })
         })
 
     }, 250)
@@ -302,7 +308,6 @@ const App = observer(() => {
         request.setUselessMessage("This is a useless message");
         client.listFiles(request, {}).then((response: any) => setFileNames(response.getFilesList())).catch((err: any) => { console.log(err) });
     }
-
 
 
     return (
