@@ -61,6 +61,7 @@ const App = observer(() => {
     const [dimensionX, setDimensionX] = useState(0);
     const [dimensionY, setDimensionY] = useState(0);
     const [dimensionZ, setDimensionZ] = useState(0);
+    const [lodNumBytes, setLodNumBytes] = useState(0)
     const [cubeLoaded, setCubeLoaded] = useState(false)
     const [extent, setExtent] = useState(null)
 
@@ -78,7 +79,7 @@ const App = observer(() => {
     }
 
     useEffect(() => {
-        if (totalBytes === 5242880) {
+        if (totalBytes > 0 && totalBytes === lodNumBytes) {
             renderDataCube()
             setCubeLoaded(true)
         }
@@ -231,6 +232,7 @@ const App = observer(() => {
             setDimensionX(dimensionsArray[0])
             setDimensionY(dimensionsArray[1])
             setDimensionZ(dimensionsArray[2])
+            setLodNumBytes(response.getLodNumBytes())
         }).catch((err: any) => { console.log(err) }).then(() => {
 
             var renderFileRequest = new Dummy();
@@ -280,7 +282,7 @@ const App = observer(() => {
         console.log("rgb: " + rgba)
         console.log("Alpha: " + alpha)
         console.log("Cropping planes: " + localState.cropFilter.getCroppingPlanes())
-        
+
         var renderClient = client.getHighQualityRender(request, {})
 
         renderClient.on('data', (response: any, err: any) => {
