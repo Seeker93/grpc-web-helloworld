@@ -288,12 +288,12 @@ const App = observer(() => {
         }).catch((err: any) => { console.log(err) }).then(() => {
             var dummyRequest = new Dummy()
             var renderClient = client.getHighQualityRender(dummyRequest, {})
-            const decoder = new H264Decoder();
+          //  const decoder = new H264Decoder();
             renderClient.on('data', (response: any, err: any) => {
                 if (response) {
                     console.log(response.getBytes())
-                    console.log(decoder.decode(response.getBytes()))
-                    console.log(decoder.pic)
+                    // console.log(decoder.decode(response.getBytes()))
+                    // console.log(decoder.pic)
                 };
                 if (err) {
                     console.log(err)
