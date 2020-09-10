@@ -47,6 +47,10 @@ export const AxisSlider = observer((props: any) => {
         localState.cropFilter.setCroppingPlanes(newPlaneArray)
     }
 
+    const onSliderRelease = () =>{
+        localState.flipAxesChanged()
+    }
+
     const onClickReset = () => {
         localState.widget.setCroppingPlanes(...extent)
         setnxValue(extent[0])
@@ -71,6 +75,7 @@ export const AxisSlider = observer((props: any) => {
                         value={nxValue}
                         labelPrecision={0}
                         labelStepSize={extent[1]}
+                        onRelease={onSliderRelease}
                         onChange={(value: number) => onCoordChange(value, 0)}
                         vertical={false}
                     />
@@ -85,6 +90,7 @@ export const AxisSlider = observer((props: any) => {
                         labelPrecision={0}
                         labelStepSize={extent[1]}
                         className={"col-xs-6 text-white"}
+                        onRelease={onSliderRelease}
                         onChange={(value: number) => onCoordChange(value, 1)}
                         vertical={false}
                     />
@@ -102,6 +108,7 @@ export const AxisSlider = observer((props: any) => {
                         labelStepSize={extent[3]}
                         stepSize={0.1}
                         value={nyValue}
+                        onRelease={onSliderRelease}
                         onChange={(value: number) => onCoordChange(value, 2)}
                         vertical={false}
                     />
@@ -115,6 +122,7 @@ export const AxisSlider = observer((props: any) => {
                         labelStepSize={extent[3]}
                         stepSize={0.1}
                         value={yValue}
+                        onRelease={onSliderRelease}
                         onChange={(value: number) => onCoordChange(value, 3)}
                         vertical={false}
                     />
@@ -131,6 +139,7 @@ export const AxisSlider = observer((props: any) => {
                         value={nzValue}
                         labelPrecision={0}
                         labelStepSize={extent[5]}
+                        onRelease={onSliderRelease}
                         onChange={(value: number) => onCoordChange(value, 4)}
                         vertical={false}
                     />
@@ -144,6 +153,7 @@ export const AxisSlider = observer((props: any) => {
                         value={zValue}
                         labelPrecision={0}
                         labelStepSize={extent[5]}
+                        onRelease={onSliderRelease}
                         onChange={(value: number) => onCoordChange(value, 5)}
                         vertical={false}
                     />

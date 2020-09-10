@@ -30,9 +30,11 @@ const App = observer(() => {
         widget: null,
         planeState: null,
         cropFilter: null,
+        renderer: null,
         renderWindow: null,
         volumeActor: null,
         colorTransferFunction: null,
+        axesChanged:false,
         setPlaneState(plane: any) {
             localState.planeState = plane
         },
@@ -51,6 +53,12 @@ const App = observer(() => {
         setColorTransferFunction(fun: any) {
             localState.colorTransferFunction = fun;
         },
+        setRenderer(ren: any) {
+            localState.renderer = ren;
+        },
+        flipAxesChanged(){
+            localState.axesChanged = !localState.axesChanged;
+        }
 
     }))
 
@@ -89,6 +97,12 @@ const App = observer(() => {
 
     }, [totalBytes]);
 
+    useEffect(() => {
+        if (localState.planeState !== null && localState.renderer !== null) {
+            let request = captureCameraInfo()
+            client.getNewLODModel(request, {})
+        }
+    }, [localState.planeState, localState.axesChanged]);
 
     function concatArrays() { // a, b TypedArray of same type
         let array = rawArray
@@ -160,13 +174,14 @@ const App = observer(() => {
                 },
                 background: [220, 185, 152]
             });
-            view3d.addEventListener('mouseup', () => debounceLog(renderer));
+            view3d.addEventListener('mouseup', debounceLog);
 
             var renderer = fullScreenRenderer.getRenderer();
             renderer.addVolume(volumeActor);
             renderer.getActiveCamera().elevation(30);
             renderer.getActiveCamera().azimuth(45);
             renderer.resetCamera();
+            localState.setRenderer(renderer)
             let renderWindow = fullScreenRenderer.getRenderWindow();
             localState.setRenderWindow(renderWindow)
             const interactor = vtkInteractorStyleTrackballCamera.newInstance();
@@ -249,49 +264,57 @@ const App = observer(() => {
         }).catch((err: any) => console.log(err))
     }
 
+    const captureCameraInfo = () => {
+        if (localState.renderer !== null) {
+            const request = new CameraInfo();
 
+            const positionList = localState.renderer.getActiveCamera().getPosition()
+            const focalPointList = localState.renderer.getActiveCamera().getFocalPoint()
+            widthRef.current = renderWindowRef.current.offsetWidth
+            heightRef.current = renderWindowRef.current.offsetHeight
+            const viewUpList = localState.renderer.getActiveCamera().getViewUp()
+            const distance = localState.renderer.getActiveCamera().getDistance()
+            const rgba = [localState.colorTransferFunction.getRedValue(0), localState.colorTransferFunction.getGreenValue(0), localState.colorTransferFunction.getBlueValue(0)]
+            const alpha = localState.colorTransferFunction.getAlpha();
+            const croppingPlanes = localState.cropFilter.getCroppingPlanes()
 
-    const debounceLog = (thisRenderer: any) => debounce(new function () {
-        var request = new CameraInfo();
-        const positionList = thisRenderer.getActiveCamera().getPosition()
-        const focalPointList = thisRenderer.getActiveCamera().getFocalPoint()
-        widthRef.current = renderWindowRef.current.offsetWidth
-        heightRef.current = renderWindowRef.current.offsetHeight
-        const viewUpList = thisRenderer.getActiveCamera().getViewUp()
-        const distance = thisRenderer.getActiveCamera().getDistance()
-        const rgba = [localState.colorTransferFunction.getRedValue(0), localState.colorTransferFunction.getGreenValue(0), localState.colorTransferFunction.getBlueValue(0)]
-        const alpha = localState.colorTransferFunction.getAlpha();
-        const croppingPlanes = localState.cropFilter.getCroppingPlanes()
+            request.setCroppingPlanesList(croppingPlanes)
+            request.setRgbaList(rgba)
+            request.setAlpha(alpha)
+            request.setPositionList(positionList)
+            request.setFocalPointList(focalPointList)
+            request.setWindowWidth(widthRef.current)
+            request.setWindowHeight(heightRef.current)
+            request.setViewUpList(viewUpList)
+            request.setDistance(distance)
+            console.log("Position: " + positionList)
+            console.log("Focal point: " + focalPointList)
+            console.log("Width: " + widthRef.current)
+            console.log("Height: " + heightRef.current)
+            console.log("ViewUp: " + viewUpList)
+            console.log("Distance: " + distance)
+            console.log("rgb: " + rgba)
+            console.log("Alpha: " + alpha)
+            console.log("Cropping planes: " + localState.cropFilter.getCroppingPlanes())
+    
+            return request
+        }
+        else {
+            return null
+        }
+    }
 
-        request.setCroppingPlanesList(croppingPlanes)
-        request.setRgbaList(rgba)
-        request.setAlpha(alpha)
-        request.setPositionList(positionList)
-        request.setFocalPointList(focalPointList)
-        request.setWindowWidth(widthRef.current)
-        request.setWindowHeight(heightRef.current)
-        request.setViewUpList(viewUpList)
-        request.setDistance(distance)
-
-        console.log("Position: " + positionList)
-        console.log("Focal point: " + focalPointList)
-        console.log("Width: " + widthRef.current)
-        console.log("Height: " + heightRef.current)
-        console.log("ViewUp: " + viewUpList)
-        console.log("Distance: " + distance)
-        console.log("rgb: " + rgba)
-        console.log("Alpha: " + alpha)
-        console.log("Cropping planes: " + localState.cropFilter.getCroppingPlanes())
-
+    const debounceLog = () => debounce(new function () {
+        let request = captureCameraInfo()
         client.getHQRenderSize(request, {}).then((response: any) => {
             setHqNumBytes(response.getSizeInBytes())
         }).catch((err: any) => { console.log(err) }).then(() => {
             var dummyRequest = new Dummy()
             var renderClient = client.getHighQualityRender(dummyRequest, {})
-          //  const decoder = new H264Decoder();
+            //  const decoder = new H264Decoder();
             renderClient.on('data', (response: any, err: any) => {
                 if (response) {
-                    console.log(response.getBytes())
+                    // console.log(response.getBytes())
                     // console.log(decoder.decode(response.getBytes()))
                     // console.log(decoder.pic)
                 };
