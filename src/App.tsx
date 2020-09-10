@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { FileSelector } from './components/FileSelector'
 import { AxisSlider } from './components/AxisSlider'
 import './App.css';
+import { H264Decoder } from 'h264decoder';
 import vtkFullScreenRenderWindow from 'vtk.js/Sources/Rendering/Misc/FullScreenRenderWindow';
 import vtkImageData from 'vtk.js/Sources/Common/DataModel/ImageData';
 import vtkDataArray from 'vtk.js/Sources/Common/Core/DataArray';
@@ -49,7 +50,8 @@ const App = observer(() => {
         },
         setColorTransferFunction(fun: any) {
             localState.colorTransferFunction = fun;
-        }
+        },
+
     }))
 
 
@@ -88,7 +90,6 @@ const App = observer(() => {
     }, [totalBytes]);
 
 
-
     function concatArrays() { // a, b TypedArray of same type
         let array = rawArray
 
@@ -111,7 +112,6 @@ const App = observer(() => {
 
     const renderDataCube = () => {
         setLoading(true)
-
         function initCubeVolume() {
 
             let width = dimensionX; let height = dimensionY; let depth = dimensionZ;
@@ -167,7 +167,6 @@ const App = observer(() => {
             renderer.getActiveCamera().elevation(30);
             renderer.getActiveCamera().azimuth(45);
             renderer.resetCamera();
-
             let renderWindow = fullScreenRenderer.getRenderWindow();
             localState.setRenderWindow(renderWindow)
             const interactor = vtkInteractorStyleTrackballCamera.newInstance();
@@ -289,10 +288,12 @@ const App = observer(() => {
         }).catch((err: any) => { console.log(err) }).then(() => {
             var dummyRequest = new Dummy()
             var renderClient = client.getHighQualityRender(dummyRequest, {})
-
+            const decoder = new H264Decoder();
             renderClient.on('data', (response: any, err: any) => {
                 if (response) {
-                    console.log(response)
+                    console.log(response.getBytes())
+                    console.log(decoder.decode(response.getBytes()))
+                    console.log(decoder.pic)
                 };
                 if (err) {
                     console.log(err)
