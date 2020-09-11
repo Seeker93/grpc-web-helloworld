@@ -103,7 +103,7 @@ const App = observer(() => {
 
     }, [totalBytes]);
 
-    useEffect(() => { // Called whenever the cropping planes are changed
+    useEffect(() => { // Called whenever the cropping planes are changed or when memory size is changed
 
         if (localState.planeState !== null && localState.renderer !== null) {
             let request = captureCameraInfo();
@@ -112,10 +112,10 @@ const App = observer(() => {
             }).catch((err: any) => {
                 console.log(err)
             }).then(() => { 
-                renderLodModel() // rendering LOD model for now. Will change when hybrid rendering is in place
+               // renderLodModel() // rendering LOD model for now. Will change when hybrid rendering is in place
             })
         }
-    }, [localState.planeState, localState.axesChanged]);
+    }, [localState.planeState, localState.axesChanged, localState.lodMemorySize]);
 
     function concatArrays() { // a, b TypedArray of same type
         let array = rawArray
