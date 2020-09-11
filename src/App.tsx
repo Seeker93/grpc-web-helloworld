@@ -103,14 +103,16 @@ const App = observer(() => {
 
     }, [totalBytes]);
 
-    useEffect(() => {
+    useEffect(() => { // Called whenever the cropping planes are changed
+
         if (localState.planeState !== null && localState.renderer !== null) {
             let request = captureCameraInfo();
-            // Called when the cropping planes are changed
             client.getNewROILODSize(request, {}).then((response: any) => {
                 setLodNumBytes(response.getTrueSizeLodBytes())  // Set the number of bytes in the LOD model to the new value
-            }).catch((err: any) => { console.log(err) }).then(() => {
-                renderLodModel()
+            }).catch((err: any) => {
+                console.log(err)
+            }).then(() => { 
+                renderLodModel() // rendering LOD model for now. Will change when hybrid rendering is in place
             })
         }
     }, [localState.planeState, localState.axesChanged]);
@@ -137,8 +139,8 @@ const App = observer(() => {
 
     const renderDataCube = () => {
         setLoading(true)
-        function initCubeVolume() {
 
+        function initCubeVolume() {
             let width = dimensionX; let height = dimensionY; let depth = dimensionZ;
 
             var rawValues = concatArrays()
@@ -247,7 +249,7 @@ const App = observer(() => {
     }
 
     const renderLodModel = () => {
-
+        console.log('Receiving LOD model')
         var renderFileRequest = new GetDataRequest();
         renderFileRequest.setDataObject(0); // sets the data object to LODModel
         var renderFileClient = client.getModelData(renderFileRequest, {})
@@ -263,6 +265,8 @@ const App = observer(() => {
     }
 
     const renderHqModel = () => {  // Not fully implemented yet
+        console.log('Receiving HQ model')
+
         var request = new GetDataRequest()
         request.setDataObject(1); // sets the data object to HQRender
         var renderClient = client.getModelData(request, {})
