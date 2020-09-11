@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { FileSelector } from './components/FileSelector'
 import { AxisSlider } from './components/AxisSlider'
+import { LodSizeSlider } from './components/LodSizeSlider'
+
 import './App.css';
 import { H264Decoder } from 'h264decoder';
 import vtkFullScreenRenderWindow from 'vtk.js/Sources/Rendering/Misc/FullScreenRenderWindow';
@@ -19,7 +21,7 @@ import logo from "./logo.svg";
 import { observer, useLocalStore } from 'mobx-react'
 import { debounce } from './utils/helperFunctions'
 import { TransferFunctionSlider } from './components/TransferFunctionSlider';
-const { FileDetails, FilesRequest, CameraInfo, Dummy } = require('./voxualize-protos/voxualize_pb.js');
+const { FileDetails, FilesRequest, CameraInfo, GetDataRequest } = require('./voxualize-protos/voxualize_pb.js');
 const { GreeterPromiseClient } = require('./voxualize-protos/voxualize_grpc_web_pb.js');
 
 
@@ -34,7 +36,8 @@ const App = observer(() => {
         renderWindow: null,
         volumeActor: null,
         colorTransferFunction: null,
-        axesChanged:false,
+        axesChanged: false,
+        lodMemorySize: 10,
         setPlaneState(plane: any) {
             localState.planeState = plane
         },
@@ -56,8 +59,11 @@ const App = observer(() => {
         setRenderer(ren: any) {
             localState.renderer = ren;
         },
-        flipAxesChanged(){
+        flipAxesChanged() {
             localState.axesChanged = !localState.axesChanged;
+        },
+        setLodMemorySize(memorySize: number) {
+            localState.lodMemorySize = memorySize;
         }
 
     }))
@@ -99,8 +105,13 @@ const App = observer(() => {
 
     useEffect(() => {
         if (localState.planeState !== null && localState.renderer !== null) {
-            let request = captureCameraInfo()
-            client.getNewLODModel(request, {})
+            let request = captureCameraInfo();
+            // Called when the cropping planes are changed
+            client.getNewROILODSize(request, {}).then((response: any) => {
+                setLodNumBytes(response.getTrueSizeLodBytes())  // Set the number of bytes in the LOD model to the new value
+            }).catch((err: any) => { console.log(err) }).then(() => {
+                renderLodModel()
+            })
         }
     }, [localState.planeState, localState.axesChanged]);
 
@@ -235,12 +246,45 @@ const App = observer(() => {
         }
     }
 
+    const renderLodModel = () => {
+
+        var renderFileRequest = new GetDataRequest();
+        renderFileRequest.setDataObject(0); // sets the data object to LODModel
+        var renderFileClient = client.getModelData(renderFileRequest, {})
+
+        renderFileClient.on('data', (response: any, err: any) => {
+            setRawArray(rawArray => rawArray.concat(response.getBytes()))
+            setTotalBytes(totalBytes => totalBytes + response.getNumBytes())
+            if (err) {
+                setLoading(false)
+            }
+        }
+        )
+    }
+
+    const renderHqModel = () => {  // Not fully implemented yet
+        var request = new GetDataRequest()
+        request.setDataObject(1); // sets the data object to HQRender
+        var renderClient = client.getModelData(request, {})
+        //  const decoder = new H264Decoder();
+        renderClient.on('data', (response: any, err: any) => {
+            if (response) {
+                // console.log(response.getBytes())
+                // console.log(decoder.decode(response.getBytes()))
+                // console.log(decoder.pic)
+            };
+            if (err) {
+                console.log(err)
+            }
+        })
+    }
 
     const renderFile = async () => {
         setLoading(true)
 
         var request = new FileDetails();
         request.setFileName(filename);
+        request.setTargetSizeLodBytes(localState.lodMemorySize); //Set the LOD memory size to the size selected
         await client.chooseFile(request, {}).then((response: any) => {
             let dimensionsArray = response.getDimensionsLodList()
             console.log(dimensionsArray)
@@ -249,22 +293,12 @@ const App = observer(() => {
             setDimensionZ(dimensionsArray[2])
             setLodNumBytes(response.getLodNumBytes())
         }).catch((err: any) => { console.log(err) }).then(() => {
-
-            var renderFileRequest = new Dummy();
-            var renderFileClient = client.getModelData(renderFileRequest, {})
-
-            renderFileClient.on('data', (response: any, err: any) => {
-                setRawArray(rawArray => rawArray.concat(response.getBytes()))
-                setTotalBytes(totalBytes => totalBytes + response.getNumBytes())
-                if (err) {
-                    setLoading(false)
-                }
-            }
-            )
-        }).catch((err: any) => console.log(err))
+            renderLodModel()
+        })
     }
 
     const captureCameraInfo = () => {
+
         if (localState.renderer !== null) {
             const request = new CameraInfo();
 
@@ -278,6 +312,7 @@ const App = observer(() => {
             const alpha = localState.colorTransferFunction.getAlpha();
             const croppingPlanes = localState.cropFilter.getCroppingPlanes()
 
+            request.setTargetSizeLodBytes(localState.lodMemorySize);
             request.setCroppingPlanesList(croppingPlanes)
             request.setRgbaList(rgba)
             request.setAlpha(alpha)
@@ -296,7 +331,7 @@ const App = observer(() => {
             console.log("rgb: " + rgba)
             console.log("Alpha: " + alpha)
             console.log("Cropping planes: " + localState.cropFilter.getCroppingPlanes())
-    
+
             return request
         }
         else {
@@ -304,24 +339,14 @@ const App = observer(() => {
         }
     }
 
+
     const debounceLog = () => debounce(new function () {
         let request = captureCameraInfo()
+
         client.getHQRenderSize(request, {}).then((response: any) => {
             setHqNumBytes(response.getSizeInBytes())
         }).catch((err: any) => { console.log(err) }).then(() => {
-            var dummyRequest = new Dummy()
-            var renderClient = client.getHighQualityRender(dummyRequest, {})
-            //  const decoder = new H264Decoder();
-            renderClient.on('data', (response: any, err: any) => {
-                if (response) {
-                    // console.log(response.getBytes())
-                    // console.log(decoder.decode(response.getBytes()))
-                    // console.log(decoder.pic)
-                };
-                if (err) {
-                    console.log(err)
-                }
-            })
+            renderHqModel()
         })
 
     }, 250)
@@ -341,7 +366,9 @@ const App = observer(() => {
                 <FileSelector className="pb-5" files={filenames} name={"Choose a file ..."} onClick={requestFiles} onItemSelected={(file: any) => { onFileChosen(file) }} />
                 <div></div>
                 <button className="btn btn-success mt-5" onClick={renderFile}>Render</button>
-
+                <div className={"col "}>
+                    {cubeLoaded && <LodSizeSlider localState={localState} />}
+                </div>
             </div>
             <div className="rendering-window" id="view3d" ref={renderWindowRef}>
 
@@ -351,10 +378,10 @@ const App = observer(() => {
 
             </div>
             <div className="fixed-bottom bg-dark h-25 justify-content-center row">
-                <div className={"col col-lg-9"}>
+                <div className={"col col-lg-7"}>
                     {cubeLoaded && <AxisSlider extent={extent} localState={localState} />}
                 </div>
-                <div className={"col col-lg-3"}>
+                <div className={"col col-lg-2"}>
                     {cubeLoaded && <TransferFunctionSlider localState={localState} />}
                 </div>
 
