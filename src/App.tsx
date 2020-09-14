@@ -6,6 +6,8 @@ import { LodSizeSlider } from './components/LodSizeSlider'
 import './App.css';
 import { H264Decoder } from 'h264decoder';
 import vtkFullScreenRenderWindow from 'vtk.js/Sources/Rendering/Misc/FullScreenRenderWindow';
+import vtkOpenGLRenderWindow from 'vtk.js/Sources/Rendering/OpenGL/RenderWindow';
+import vtkRenderWindow from 'vtk.js/Sources/Rendering/Core/RenderWindow';
 import vtkImageData from 'vtk.js/Sources/Common/DataModel/ImageData';
 import vtkDataArray from 'vtk.js/Sources/Common/Core/DataArray';
 import vtkVolume from 'vtk.js/Sources/Rendering/Core/Volume';
@@ -14,6 +16,15 @@ import vtkColorTransferFunction from 'vtk.js/Sources/Rendering/Core/ColorTransfe
 import vtkPiecewiseFunction from 'vtk.js/Sources/Common/DataModel/PiecewiseFunction';
 import vtkImageCroppingRegionsWidget from 'vtk.js/Sources/Interaction/Widgets/ImageCroppingRegionsWidget';
 import { VtkDataTypes } from 'vtk.js/Sources/Common/Core/DataArray/Constants';
+import vtkImageMapper from 'vtk.js/Sources/Rendering/Core/ImageMapper';
+import vtkImageSlice from 'vtk.js/Sources/Rendering/Core/ImageSlice';
+import vtkRTAnalyticSource from 'vtk.js/Sources/Filters/Sources/RTAnalyticSource';
+import vtkInteractorStyleImage from 'vtk.js/Sources/Interaction/Style/InteractorStyleImage';
+import vtkRenderer from 'vtk.js/Sources/Rendering/Core/Renderer';
+import vtkRenderWindowInteractor from 'vtk.js/Sources/Rendering/Core/RenderWindowInteractor';
+
+import Constants from 'vtk.js/Sources/Rendering/Core/ImageMapper/Constants';
+
 import vtkImageCropFilter from 'vtk.js/Sources/Filters/General/ImageCropFilter';
 import vtkInteractorStyleTrackballCamera from 'vtk.js/Sources/Interaction/Style/InteractorStyleTrackballCamera';
 
@@ -21,9 +32,11 @@ import logo from "./logo.svg";
 import { observer, useLocalStore } from 'mobx-react'
 import { debounce } from './utils/helperFunctions'
 import { TransferFunctionSlider } from './components/TransferFunctionSlider';
+
 const { FileDetails, FilesRequest, CameraInfo, GetDataRequest } = require('./voxualize-protos/voxualize_pb.js');
 const { GreeterPromiseClient } = require('./voxualize-protos/voxualize_grpc_web_pb.js');
 
+const { SlicingMode } = Constants;
 
 
 const App = observer(() => {
@@ -38,6 +51,8 @@ const App = observer(() => {
         colorTransferFunction: null,
         axesChanged: false,
         lodMemorySize: 10,
+        openGlWindow: null,
+        actor: null,
         setPlaneState(plane: any) {
             localState.planeState = plane
         },
@@ -62,8 +77,14 @@ const App = observer(() => {
         flipAxesChanged() {
             localState.axesChanged = !localState.axesChanged;
         },
-        setLodMemorySize(memorySize: number) {
+        setLodMemorySizrte(memorySize: number) {
             localState.lodMemorySize = memorySize;
+        },
+        setOpenGlWindow(window: any) {
+            localState.openGlWindow = window;
+        },
+        setActor(actor: any) {
+            localState.actor = actor;
         }
 
     }))
@@ -80,6 +101,7 @@ const App = observer(() => {
     const [lodNumBytes, setLodNumBytes] = useState(0);
     const [hqNumBytes, setHqNumBytes] = useState(0);
     const [cubeLoaded, setCubeLoaded] = useState(false)
+    const [highResLoaded, setHighResLoaded] = useState(false)
     const [extent, setExtent] = useState(null)
 
     const renderWindowRef = useRef(null);
@@ -111,8 +133,8 @@ const App = observer(() => {
                 setLodNumBytes(response.getTrueSizeLodBytes())  // Set the number of bytes in the LOD model to the new value
             }).catch((err: any) => {
                 console.log(err)
-            }).then(() => { 
-               // renderLodModel() // rendering LOD model for now. Will change when hybrid rendering is in place
+            }).then(() => {
+                // renderLodModel() // rendering LOD model for now. Will change when hybrid rendering is in place
             })
         }
     }, [localState.planeState, localState.axesChanged, localState.lodMemorySize]);
@@ -136,12 +158,99 @@ const App = observer(() => {
         return mergedArray
     }
 
+    const render2DImage = () => { // Placeholder method. Just renders a random image
+        setHighResLoaded(true)
+        // if (localState.openGlWindow && localState.renderWindow) {
+        //     localState.openGlWindow.setSize(0, 0)
+        // }
+
+        const renderWindow = vtkRenderWindow.newInstance();
+        localState.setRenderWindow(renderWindow)
+
+        const renderer = vtkRenderer.newInstance({
+            background: [220, 185, 152]
+        });
+
+        localState.setRenderer(renderer)
+        localState.renderWindow.addRenderer(renderer);
+
+        const rtSource = vtkRTAnalyticSource.newInstance();
+        rtSource.setWholeExtent(0, 200, 0, 200, 0, 200);
+        rtSource.setCenter(100, 100, 100);
+        rtSource.setStandardDeviation(0.3);
+
+        const mapper = vtkImageMapper.newInstance();
+        mapper.setInputConnection(rtSource.getOutputPort());
+        mapper.setSliceAtFocalPoint(true);
+        mapper.setSlicingMode(SlicingMode.Z);
+        const rgb = vtkColorTransferFunction.newInstance();
+        rgb.addRGBPoint(0, 0, 0, 0);
+        rgb.addRGBPoint(255, 1, 1, 1);
+
+        const ofun = vtkPiecewiseFunction.newInstance();
+        ofun.addPoint(0, 1);
+        ofun.addPoint(150, 1);
+        ofun.addPoint(180, 0);
+        ofun.addPoint(255, 0);
+
+
+        const actor = vtkImageSlice.newInstance();
+        localState.setActor(actor)
+        localState.actor.getProperty().setColorWindow(255);
+        localState.actor.getProperty().setColorLevel(127);
+        // Uncomment this if you want to use a fixed colorwindow/level
+        // actor.getProperty().setRGBTransferFunction(rgb);
+        localState.actor.getProperty().setPiecewiseFunction(ofun);
+        localState.actor.setMapper(mapper);
+        localState.renderer.addActor(actor);
+
+        const camera = localState.renderer.getActiveCamera();
+        const position = camera.getFocalPoint();
+        // offset along the slicing axis
+        const normal = mapper.getSlicingModeNormal();
+        position[0] += normal[0];
+        position[1] += normal[1];
+        position[2] += normal[2];
+        camera.setPosition(...position);
+        switch (mapper.getSlicingMode()) {
+            case SlicingMode.X:
+                camera.setViewUp([0, 1, 0]);
+                break;
+            case SlicingMode.Y:
+                camera.setViewUp([1, 0, 0]);
+                break;
+            case SlicingMode.Z:
+                camera.setViewUp([0, 1, 0]);
+                break;
+            default:
+        }
+        camera.setParallelProjection(true);
+        localState.renderer.resetCamera();
+        localState.renderWindow.render();
+        const openglRenderWindow = vtkOpenGLRenderWindow.newInstance();
+        localState.setOpenGlWindow(openglRenderWindow);
+        localState.renderWindow.addView(localState.openGlWindow);
+
+        var view2d = document.getElementById("view2d");
+        localState.openGlWindow.setContainer(view2d)
+        view2d.addEventListener('mouseDown', () => setHighResLoaded(false));
+
+        const dims = view2d.getBoundingClientRect();
+        localState.openGlWindow.setSize(dims.width, dims.height)
+        const interactor = vtkRenderWindowInteractor.newInstance();
+        interactor.setView(localState.openGlWindow);
+        interactor.initialize();
+        interactor.bindEvents(view2d);
+    }
 
     const renderDataCube = () => {
         setLoading(true)
 
         function initCubeVolume() {
             let width = dimensionX; let height = dimensionY; let depth = dimensionZ;
+
+            const renderWindow = vtkRenderWindow.newInstance(); //Now uses RenderWindow instead of Fullscreen render window
+            localState.setRenderWindow(renderWindow)
 
             var rawValues = concatArrays()
             var values = convertBlock(rawValues);
@@ -176,32 +285,37 @@ const App = observer(() => {
             localState.setVolumeActor(volumeActor)
 
             var view3d = document.getElementById("view3d");
-
-            var fullScreenRenderer = vtkFullScreenRenderWindow.newInstance({
-                rootContainer: view3d,
-                containerStyle: {
-                    height: '600px',
-                    width: '600px',
-                    justifyContent: 'center',
-                    padding: '10px'
-                },
-                background: [220, 185, 152]
-            });
             view3d.addEventListener('mouseup', debounceLog);
 
-            var renderer = fullScreenRenderer.getRenderer();
+            const renderer = vtkRenderer.newInstance({
+                background: [220, 185, 152]
+            });
+
             renderer.addVolume(volumeActor);
             renderer.getActiveCamera().elevation(30);
             renderer.getActiveCamera().azimuth(45);
             renderer.resetCamera();
+            localState.renderWindow.render();
             localState.setRenderer(renderer)
-            let renderWindow = fullScreenRenderer.getRenderWindow();
-            localState.setRenderWindow(renderWindow)
-            const interactor = vtkInteractorStyleTrackballCamera.newInstance();
-            renderWindow.getInteractor().setInteractorStyle(interactor);
+            localState.renderWindow.addRenderer(renderer);
+
+            const openglRenderWindow = vtkOpenGLRenderWindow.newInstance();
+            localState.setOpenGlWindow(openglRenderWindow);
+            localState.renderWindow.addView(localState.openGlWindow);
+            localState.openGlWindow.setContainer(view3d)
+            const dims = view3d.getBoundingClientRect();
+            localState.openGlWindow.setSize(dims.width, dims.height)
+
+            const interactor = vtkRenderWindowInteractor.newInstance();
+            interactor.setView(localState.openGlWindow);
+            interactor.initialize();
+            interactor.bindEvents(view3d);
+            interactor.setInteractorStyle(vtkInteractorStyleTrackballCamera.newInstance());
+            localState.setCropFilter(cropFilter)
+
             const widget = vtkImageCroppingRegionsWidget.newInstance();
 
-            widget.setInteractor(renderWindow.getInteractor());
+            widget.setInteractor(interactor);
 
             widget.setVolumeMapper(mapper);
             widget.setHandleSize(15); // in pixels
@@ -211,8 +325,6 @@ const App = observer(() => {
             widget.setEdgeHandlesEnabled(true);
 
             localState.setWidgetState(widget)
-            localState.setCropFilter(cropFilter)
-            renderWindow.render();
         }
 
         function initProps(property) {
@@ -240,7 +352,7 @@ const App = observer(() => {
         initCubeVolume();
         setLoading(false)
     }
-
+    console.log(highResLoaded)
     const onFileChosen = (filename: any) => {
         setFileName(filename)
         if (filename === null || filename === '') {
@@ -270,7 +382,7 @@ const App = observer(() => {
         var request = new GetDataRequest()
         request.setDataObject(1); // sets the data object to HQRender
         var renderClient = client.getModelData(request, {})
-        //  const decoder = new H264Decoder();
+        const decoder = new H264Decoder();
         renderClient.on('data', (response: any, err: any) => {
             if (response) {
                 // console.log(response.getBytes())
@@ -351,8 +463,7 @@ const App = observer(() => {
             setHqNumBytes(response.getSizeInBytes())
         }).catch((err: any) => { console.log(err) }).then(() => {
             renderHqModel()
-        })
-
+        }).then(() => render2DImage())
     }, 250)
 
 
@@ -364,25 +475,37 @@ const App = observer(() => {
 
 
     return (
-        <div className="App d-flex container-fluid row">
-            <div className="col col-sm-2 bg-dark pt-5">
-                <h3 className="pb-5 text-light">Voxualize</h3>
-                <FileSelector className="pb-5" files={filenames} name={"Choose a file ..."} onClick={requestFiles} onItemSelected={(file: any) => { onFileChosen(file) }} />
-                <div></div>
-                <button className="btn btn-success mt-5" onClick={renderFile}>Render</button>
-                <div className={"col "}>
-                    {cubeLoaded && <LodSizeSlider localState={localState} />}
+        <div className="container-fluid" >
+            <div className="row bg-dark">
+                <h3 className="col text-light mt-auto mb-auto ">Voxualize</h3>
+                <div className={"d-flex align-items-center justify-content-end"}>
+                    <FileSelector className="col flex-end" files={filenames} name={"Choose a file ..."} onClick={requestFiles} onItemSelected={(file: any) => { onFileChosen(file) }} />
+                </div>
+                <div className={"d-flex justify-content-end px-5 py-2"}>
+                    <button className="col btn btn-success " onClick={renderFile}>Render</button>
                 </div>
             </div>
-            <div className="rendering-window" id="view3d" ref={renderWindowRef}>
-
-                {loading &&
-                    <img src={logo} className="App-logo" alt="logo" />
-                }
-
-            </div>
+            {highResLoaded &&
+                <div className="row rendering-window" id="view2d" ref={renderWindowRef}>
+                    {/* Rendering happens in this div */}
+                    {loading &&
+                        <img src={logo} className="App-logo" alt="logo" />
+                    }
+                </div>
+            }
+            {!highResLoaded &&
+                <div className="row rendering-window" id="view3d" ref={renderWindowRef}>
+                    {/* Rendering happens in this div */}
+                    {loading &&
+                        <img src={logo} className="App-logo" alt="logo" />
+                    }
+                </div>
+            }
             <div className="fixed-bottom bg-dark h-25 justify-content-center row">
-                <div className={"col col-lg-7"}>
+                <div className={"col col-lg-2"}>
+                    {cubeLoaded && <LodSizeSlider localState={localState} />}
+                </div>
+                <div className={"col col-lg-6"}>
                     {cubeLoaded && <AxisSlider extent={extent} localState={localState} />}
                 </div>
                 <div className={"col col-lg-2"}>

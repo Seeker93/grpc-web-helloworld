@@ -1,8 +1,6 @@
 
 import React, { useState, useEffect } from 'react'
 import { Slider } from "@blueprintjs/core";
-import vtkColorTransferFunction from 'vtk.js/Sources/Rendering/Core/ColorTransferFunction';
-//import vtkPiecewiseFunction from 'vtk.js/Sources/Common/DataModel/PiecewiseFunction';
 import { observer } from 'mobx-react'
 
 export const TransferFunctionSlider = observer((props: any) => {

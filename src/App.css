@@ -1,6 +1,7 @@
 .App {
   text-align: center;
   height:100vh;
+
 }
 
 .App-logo {
@@ -15,11 +16,9 @@
 }
 
 .rendering-window {
-  padding-top:20px;
   display: flex;
-  align-items: flex-start;
-  margin-left:20%;
-  justify-content: flex-start;
+  justify-content: center;
+  height:600px;  
 }
 
 
