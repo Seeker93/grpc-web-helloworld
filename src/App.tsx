@@ -5,7 +5,7 @@ import { LodSizeSlider } from './components/LodSizeSlider'
 
 import './App.css';
 import { H264Decoder } from 'h264decoder';
-import vtkFullScreenRenderWindow from 'vtk.js/Sources/Rendering/Misc/FullScreenRenderWindow';
+
 import vtkOpenGLRenderWindow from 'vtk.js/Sources/Rendering/OpenGL/RenderWindow';
 import vtkRenderWindow from 'vtk.js/Sources/Rendering/Core/RenderWindow';
 import vtkImageData from 'vtk.js/Sources/Common/DataModel/ImageData';
@@ -18,13 +18,8 @@ import vtkImageCroppingRegionsWidget from 'vtk.js/Sources/Interaction/Widgets/Im
 import { VtkDataTypes } from 'vtk.js/Sources/Common/Core/DataArray/Constants';
 import vtkImageMapper from 'vtk.js/Sources/Rendering/Core/ImageMapper';
 import vtkImageSlice from 'vtk.js/Sources/Rendering/Core/ImageSlice';
-import vtkRTAnalyticSource from 'vtk.js/Sources/Filters/Sources/RTAnalyticSource';
-import vtkInteractorStyleImage from 'vtk.js/Sources/Interaction/Style/InteractorStyleImage';
 import vtkRenderer from 'vtk.js/Sources/Rendering/Core/Renderer';
 import vtkRenderWindowInteractor from 'vtk.js/Sources/Rendering/Core/RenderWindowInteractor';
-
-import Constants from 'vtk.js/Sources/Rendering/Core/ImageMapper/Constants';
-
 import vtkImageCropFilter from 'vtk.js/Sources/Filters/General/ImageCropFilter';
 import vtkInteractorStyleTrackballCamera from 'vtk.js/Sources/Interaction/Style/InteractorStyleTrackballCamera';
 
@@ -32,11 +27,11 @@ import logo from "./logo.svg";
 import { observer, useLocalStore } from 'mobx-react'
 import { debounce } from './utils/helperFunctions'
 import { TransferFunctionSlider } from './components/TransferFunctionSlider';
+import classNames from 'classnames/bind';
 
 const { FileDetails, FilesRequest, CameraInfo, GetDataRequest } = require('./voxualize-protos/voxualize_pb.js');
 const { GreeterPromiseClient } = require('./voxualize-protos/voxualize_grpc_web_pb.js');
 
-const { SlicingMode } = Constants;
 
 
 const App = observer(() => {
@@ -53,6 +48,8 @@ const App = observer(() => {
         lodMemorySize: 10,
         openGlWindow: null,
         actor: null,
+        hqData: null,
+        sliceRenderer: null,
         setPlaneState(plane: any) {
             localState.planeState = plane
         },
@@ -85,6 +82,12 @@ const App = observer(() => {
         },
         setActor(actor: any) {
             localState.actor = actor;
+        },
+        setHqData(data: any) {
+            localState.hqData = data;
+        },
+        setSliceRenderer(slice: any) {
+            localState.sliceRenderer = slice;
         }
 
     }))
@@ -95,16 +98,18 @@ const App = observer(() => {
     const [rawArray, setRawArray] = useState([])
     const [loading, setLoading] = useState(false)
     const [totalBytes, setTotalBytes] = useState(0);
+    const [totalHqBytes, setTotalHqBytes] = useState(0);
     const [dimensionX, setDimensionX] = useState(0);
     const [dimensionY, setDimensionY] = useState(0);
     const [dimensionZ, setDimensionZ] = useState(0);
     const [lodNumBytes, setLodNumBytes] = useState(0);
     const [hqNumBytes, setHqNumBytes] = useState(0);
+    const [hqBytes, setHqBytes] = useState([])
     const [cubeLoaded, setCubeLoaded] = useState(false)
-    const [highResLoaded, setHighResLoaded] = useState(false)
     const [extent, setExtent] = useState(null)
 
-    const renderWindowRef = useRef(null);
+    const renderWindowLodRef = useRef(null);
+
     const widthRef = useRef(0);
     const heightRef = useRef(0);
 
@@ -117,13 +122,50 @@ const App = observer(() => {
         return new Float32Array(slicedArray.buffer);
     }
 
+    function yuv420ProgPlanarToRgb(yuv, width, height) {
+        const frameSize = width * height;
+        const halfWidth = Math.floor(width / 2);
+        const uStart = frameSize;
+        const vStart = frameSize + Math.floor(frameSize / 4);
+        const rgb = []
+
+        for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+                const yy = yuv[y * width + x];
+                const colorIndex = Math.floor(y / 2) * halfWidth + Math.floor(x / 2);
+                const uu = yuv[uStart + colorIndex] - 128;
+                const vv = yuv[vStart + colorIndex] - 128;
+
+                let r = yy + 1.402 * vv;
+                let g = yy - 0.344 * uu - 0.714 * vv;
+                let b = yy + 1.772 * uu;
+
+                rgb.push(r)
+                rgb.push(g)
+                rgb.push(b)
+            }
+        }
+
+        return rgb
+    }
+
     useEffect(() => {
         if (totalBytes > 0 && totalBytes === lodNumBytes) {
-            renderDataCube()
             setCubeLoaded(true)
+            renderDataCube()
+
         }
 
     }, [totalBytes]);
+
+    useEffect(() => {
+        if (totalHqBytes > 0 && totalHqBytes === hqNumBytes) {
+            console.log(hqBytes)
+            console.log(rawArray)
+            setCubeLoaded(true)
+        }
+
+    }, [totalHqBytes]);
 
     useEffect(() => { // Called whenever the cropping planes are changed or when memory size is changed
 
@@ -139,8 +181,8 @@ const App = observer(() => {
         }
     }, [localState.planeState, localState.axesChanged, localState.lodMemorySize]);
 
-    function concatArrays() { // a, b TypedArray of same type
-        let array = rawArray
+    function concatArrays(arrayToConcat: any) { // a, b TypedArray of same type
+        let array = arrayToConcat
 
         // Get the total length of all arrays.
         let length = 0;
@@ -158,101 +200,100 @@ const App = observer(() => {
         return mergedArray
     }
 
+    const onClick2D = () => {
+        localState.renderWindow.removeRenderer(localState.sliceRenderer) // Remove slice when the user clicks the static image
+    }
+
     const render2DImage = () => { // Placeholder method. Just renders a random image
-        setHighResLoaded(true)
-        // if (localState.openGlWindow && localState.renderWindow) {
-        //     localState.openGlWindow.setSize(0, 0)
-        // }
+        console.log('Rendering 2d image')
+        var width = dimensionX, height = dimensionY, depth = 1;
+        var size = width * height * depth;
 
-        const renderWindow = vtkRenderWindow.newInstance();
-        localState.setRenderWindow(renderWindow)
+        var values = [];
+        for (var i = 0; i < size; i++) {
+            values[i] = Math.random();
+        }
 
-        const renderer = vtkRenderer.newInstance({
+        var scalars = vtkDataArray.newInstance({
+            values: values,
+            numberOfComponents: 1, // number of channels (grayscale)
+            dataType: VtkDataTypes.FLOAT, // values encoding
+            name: 'scalars'
+        });
+
+        var imageData = vtkImageData.newInstance();
+        imageData.setOrigin(0, 0, 0);
+        imageData.setSpacing(1, 1, 1);
+        imageData.setExtent(0, width - 1, 0, height - 1, 0, depth - 1);
+        imageData.getPointData().setScalars(scalars);
+
+        var mapper = vtkImageMapper.newInstance();
+        mapper.setInputData(imageData);
+
+        var actor = vtkImageSlice.newInstance();
+        actor.setMapper(mapper);
+
+        initProps(actor.getProperty());
+
+        var view3d = document.getElementById("view3d");
+
+        view3d.addEventListener('mousedown', onClick2D); // Switches to LOD on mouse click
+
+        const sliceRenderer = vtkRenderer.newInstance({
             background: [220, 185, 152]
         });
 
-        localState.setRenderer(renderer)
-        localState.renderWindow.addRenderer(renderer);
+        localState.setSliceRenderer(sliceRenderer)
+        localState.sliceRenderer.addVolume(actor);
+        localState.renderWindow.addRenderer(localState.sliceRenderer) // Overlay slice on top of volume after user stops interacting
 
-        const rtSource = vtkRTAnalyticSource.newInstance();
-        rtSource.setWholeExtent(0, 200, 0, 200, 0, 200);
-        rtSource.setCenter(100, 100, 100);
-        rtSource.setStandardDeviation(0.3);
-
-        const mapper = vtkImageMapper.newInstance();
-        mapper.setInputConnection(rtSource.getOutputPort());
-        mapper.setSliceAtFocalPoint(true);
-        mapper.setSlicingMode(SlicingMode.Z);
-        const rgb = vtkColorTransferFunction.newInstance();
-        rgb.addRGBPoint(0, 0, 0, 0);
-        rgb.addRGBPoint(255, 1, 1, 1);
-
-        const ofun = vtkPiecewiseFunction.newInstance();
-        ofun.addPoint(0, 1);
-        ofun.addPoint(150, 1);
-        ofun.addPoint(180, 0);
-        ofun.addPoint(255, 0);
-
-
-        const actor = vtkImageSlice.newInstance();
-        localState.setActor(actor)
-        localState.actor.getProperty().setColorWindow(255);
-        localState.actor.getProperty().setColorLevel(127);
-        // Uncomment this if you want to use a fixed colorwindow/level
-        // actor.getProperty().setRGBTransferFunction(rgb);
-        localState.actor.getProperty().setPiecewiseFunction(ofun);
-        localState.actor.setMapper(mapper);
-        localState.renderer.addActor(actor);
-
-        const camera = localState.renderer.getActiveCamera();
-        const position = camera.getFocalPoint();
-        // offset along the slicing axis
-        const normal = mapper.getSlicingModeNormal();
-        position[0] += normal[0];
-        position[1] += normal[1];
-        position[2] += normal[2];
-        camera.setPosition(...position);
-        switch (mapper.getSlicingMode()) {
-            case SlicingMode.X:
-                camera.setViewUp([0, 1, 0]);
-                break;
-            case SlicingMode.Y:
-                camera.setViewUp([1, 0, 0]);
-                break;
-            case SlicingMode.Z:
-                camera.setViewUp([0, 1, 0]);
-                break;
-            default:
-        }
-        camera.setParallelProjection(true);
-        localState.renderer.resetCamera();
         localState.renderWindow.render();
-        const openglRenderWindow = vtkOpenGLRenderWindow.newInstance();
-        localState.setOpenGlWindow(openglRenderWindow);
-        localState.renderWindow.addView(localState.openGlWindow);
 
-        var view2d = document.getElementById("view2d");
-        localState.openGlWindow.setContainer(view2d)
-        view2d.addEventListener('mouseDown', () => setHighResLoaded(false));
+        // const widget = vtkImageCroppingRegionsWidget.newInstance();
 
-        const dims = view2d.getBoundingClientRect();
-        localState.openGlWindow.setSize(dims.width, dims.height)
-        const interactor = vtkRenderWindowInteractor.newInstance();
-        interactor.setView(localState.openGlWindow);
-        interactor.initialize();
-        interactor.bindEvents(view2d);
+        // // widget.setInteractor(interactor);
+
+        // // widget.setVolumeMapper(mapper);
+        // // widget.setHandleSize(15); // in pixels
+        // // widget.setEnabled(true);
+
+        // // widget.setCornerHandlesEnabled(true);
+        // // widget.setEdgeHandlesEnabled(true);
+
+        //localState.setWidgetState(widget)
+
+        function initProps(property) {
+            property.setRGBTransferFunction(0, newColorFunction());
+            property.setScalarOpacity(0, newOpacityFunction());
+        }
+
+        function newColorFunction() {
+            var fun = vtkColorTransferFunction.newInstance();
+            fun.addRGBPoint(0, 0.4, 0.2, 0.0);
+            fun.addRGBPoint(1, 1.0, 1.0, 1.0);
+            return fun;
+        }
+
+        function newOpacityFunction() {
+            var fun = vtkPiecewiseFunction.newInstance();
+            fun.addPoint(0, 0);
+            fun.addPoint(0.5, 0);
+            fun.addPoint(0.5, 1);
+            fun.addPoint(1, 1);
+            return fun;
+        }
     }
 
     const renderDataCube = () => {
         setLoading(true)
 
-        function initCubeVolume() {
+        function createCube() {
             let width = dimensionX; let height = dimensionY; let depth = dimensionZ;
 
             const renderWindow = vtkRenderWindow.newInstance(); //Now uses RenderWindow instead of Fullscreen render window
             localState.setRenderWindow(renderWindow)
 
-            var rawValues = concatArrays()
+            var rawValues = concatArrays(rawArray)
             var values = convertBlock(rawValues);
             var scalars = vtkDataArray.newInstance({
                 values: values,
@@ -323,7 +364,6 @@ const App = observer(() => {
 
             widget.setCornerHandlesEnabled(true);
             widget.setEdgeHandlesEnabled(true);
-
             localState.setWidgetState(widget)
         }
 
@@ -349,10 +389,10 @@ const App = observer(() => {
             fun.addPoint(0.16, 1);
             return fun;
         }
-        initCubeVolume();
+        createCube();
         setLoading(false)
     }
-    console.log(highResLoaded)
+
     const onFileChosen = (filename: any) => {
         setFileName(filename)
         if (filename === null || filename === '') {
@@ -367,6 +407,7 @@ const App = observer(() => {
         var renderFileClient = client.getModelData(renderFileRequest, {})
 
         renderFileClient.on('data', (response: any, err: any) => {
+
             setRawArray(rawArray => rawArray.concat(response.getBytes()))
             setTotalBytes(totalBytes => totalBytes + response.getNumBytes())
             if (err) {
@@ -376,23 +417,30 @@ const App = observer(() => {
         )
     }
 
-    const renderHqModel = () => {  // Not fully implemented yet
-        console.log('Receiving HQ model')
+    const decodeHQmodel = () => {  // Not fully implemented yet
+        // console.log('Receiving HQ model')
 
-        var request = new GetDataRequest()
-        request.setDataObject(1); // sets the data object to HQRender
-        var renderClient = client.getModelData(request, {})
-        const decoder = new H264Decoder();
-        renderClient.on('data', (response: any, err: any) => {
-            if (response) {
-                // console.log(response.getBytes())
-                // console.log(decoder.decode(response.getBytes()))
-                // console.log(decoder.pic)
-            };
-            if (err) {
-                console.log(err)
-            }
-        })
+        // var request = new GetDataRequest()
+        // request.setDataObject(1); // sets the data object to HQRender
+
+        // var renderClient = client.getModelData(request, {})
+        // await renderClient.on('data', (response: any, err: any) => {
+        //     if (response) {
+        //         setTotalHqBytes(totalHqBytes => totalHqBytes + response.getNumBytes())
+        //         localState.setHqData(response.getBytes())
+        //         console.log(localState.hqData)
+        //     };
+        //     if (err) {
+        //         console.log(err)
+        //     }
+        // })
+
+        // function sleep(ms) {
+        //     return new Promise(resolve => setTimeout(resolve, ms));
+        // }
+
+        // await sleep(200)
+        render2DImage()
     }
 
     const renderFile = async () => {
@@ -420,8 +468,8 @@ const App = observer(() => {
 
             const positionList = localState.renderer.getActiveCamera().getPosition()
             const focalPointList = localState.renderer.getActiveCamera().getFocalPoint()
-            widthRef.current = renderWindowRef.current.offsetWidth
-            heightRef.current = renderWindowRef.current.offsetHeight
+            widthRef.current = renderWindowLodRef.current.offsetWidth
+            heightRef.current = renderWindowLodRef.current.offsetHeight
             const viewUpList = localState.renderer.getActiveCamera().getViewUp()
             const distance = localState.renderer.getActiveCamera().getDistance()
             const rgba = [localState.colorTransferFunction.getRedValue(0), localState.colorTransferFunction.getGreenValue(0), localState.colorTransferFunction.getBlueValue(0)]
@@ -456,14 +504,14 @@ const App = observer(() => {
     }
 
 
-    const debounceLog = () => debounce(new function () {
+    const debounceLog = debounce(async () => {
         let request = captureCameraInfo()
 
-        client.getHQRenderSize(request, {}).then((response: any) => {
+        await client.getHQRenderSize(request, {}).then((response: any) => {
             setHqNumBytes(response.getSizeInBytes())
         }).catch((err: any) => { console.log(err) }).then(() => {
-            renderHqModel()
-        }).then(() => render2DImage())
+            decodeHQmodel()
+        })
     }, 250)
 
 
@@ -484,23 +532,18 @@ const App = observer(() => {
                 <div className={"d-flex justify-content-end px-5 py-2"}>
                     <button className="col btn btn-success " onClick={renderFile}>Render</button>
                 </div>
+                <div className={"d-flex justify-content-end px-5 py-2"}>
+                    <button className="col btn btn-success " onClick={render2DImage}>Render2D</button>
+                </div>
             </div>
-            {highResLoaded &&
-                <div className="row rendering-window" id="view2d" ref={renderWindowRef}>
-                    {/* Rendering happens in this div */}
-                    {loading &&
-                        <img src={logo} className="App-logo" alt="logo" />
-                    }
-                </div>
-            }
-            {!highResLoaded &&
-                <div className="row rendering-window" id="view3d" ref={renderWindowRef}>
-                    {/* Rendering happens in this div */}
-                    {loading &&
-                        <img src={logo} className="App-logo" alt="logo" />
-                    }
-                </div>
-            }
+
+            <div className={classNames('rendering-window', 'row')} id="view3d" ref={renderWindowLodRef}>
+                {/* Rendering happens in this div */}
+                {loading &&
+                    <img src={logo} className="App-logo" alt="logo" />
+                }
+            </div>
+
             <div className="fixed-bottom bg-dark h-25 justify-content-center row">
                 <div className={"col col-lg-2"}>
                     {cubeLoaded && <LodSizeSlider localState={localState} />}
