@@ -20,7 +20,7 @@ export const LodSizeSlider = observer((props: any) => {
                 stepSize={1}
                 value={localState.lodMemorySize} // Slider value is always set to the shared state variable
                 labelPrecision={0}
-                onChange={(value: number) => onSizeChange(value)} // Function that's called when you change the value
+                onRelease={(value: number) => onSizeChange(value)} // Function that's called when you change the value
                 labelStepSize={10}
                 vertical={false}
             />
