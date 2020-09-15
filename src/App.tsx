@@ -86,6 +86,9 @@ const App = observer(() => {
         },
         setSliceRenderer(slice: any) {
             localState.sliceRenderer = slice;
+        },
+        setLodMemorySize(size:number){
+            localState.lodMemorySize=size;
         }
 
     }))
@@ -140,7 +143,6 @@ const App = observer(() => {
     }, [totalHqBytes]);
 
     useEffect(() => { // Called whenever the cropping planes are changed or when memory size is changed
-
         if (localState.planeState !== null && localState.renderer !== null) {
             let request = captureCameraInfo();
             client.getNewROILODSize(request, {}).then((response: any) => {
@@ -148,10 +150,10 @@ const App = observer(() => {
             }).catch((err: any) => {
                 console.log(err)
             }).then(() => {
-                // renderLodModel() // rendering LOD model for now. Will change when hybrid rendering is in place
+              loadNewLodModel() // rendering LOD model for now. Will change when hybrid rendering is in place
             })
         }
-    }, [localState.planeState, localState.axesChanged, localState.lodMemorySize]);
+    }, [localState.lodMemorySize]);
 
 
     function concatArrays(arrayToConcat: any) { // a, b TypedArray of same type
@@ -185,23 +187,19 @@ const App = observer(() => {
         let floatArray = convertBlock(rawArray) // Combined byte stream array as float
         console.log(floatArray)
 
-        var width = dimensionX, height = dimensionY, depth = 1;
-        var size = width * height * depth;
-
-        var values = [];
-        for (var i = 0; i < size; i++) {
-            values[i] = Math.random();
-        }
+        var width = 600, height = 600, depth = 1;
+      
 
         var scalars = vtkDataArray.newInstance({
-            values: floatArray,
-            numberOfComponents: 1, // number of channels (grayscale)
-            dataType: VtkDataTypes.FLOAT, // values encoding
+            values: rawArray,
+            numberOfComponents: 4, // number of channels (grayscale)
+            dataType: VtkDataTypes.UNSIGNED_CHAR, // values encoding
             name: 'scalars'
         });
+        
         var imageData = vtkImageData.newInstance();
         imageData.setOrigin(0, 0, 0);
-        imageData.setSpacing(1, 1, 1);
+        imageData.setSpacing(1.0, (width / height).toFixed(2), (width / depth).toFixed(2));
         imageData.setExtent(0, width - 1, 0, height - 1, 0, depth - 1);
         imageData.getPointData().setScalars(scalars);
 
@@ -210,7 +208,6 @@ const App = observer(() => {
 
         var actor = vtkImageSlice.newInstance();
         actor.setMapper(mapper);
-        initProps(actor.getProperty());
 
         var view3d = document.getElementById("view3d");
 
@@ -222,30 +219,13 @@ const App = observer(() => {
 
         localState.setSliceRenderer(sliceRenderer)
         localState.sliceRenderer.addVolume(actor);  
+
         localState.renderWindow.addRenderer(localState.sliceRenderer) // Overlay slice on top of volume after user stops interacting
 
         localState.renderWindow.render();
 
-        function initProps(property) {
-            property.setRGBTransferFunction(0, newColorFunction());
-            property.setScalarOpacity(0, newOpacityFunction());
-        }
+   
 
-        function newColorFunction() {
-            var fun = vtkColorTransferFunction.newInstance();
-            fun.addRGBPoint(0, 0.4, 0.2, 0.0);
-            fun.addRGBPoint(1, 1.0, 1.0, 1.0);
-            return fun;
-        }
-
-        function newOpacityFunction() {
-            var fun = vtkPiecewiseFunction.newInstance();
-            fun.addPoint(0, 0);
-            fun.addPoint(0.5, 0);
-            fun.addPoint(0.5, 1);
-            fun.addPoint(1, 1);
-            return fun;
-        }
     }
 
     const renderDataCube = () => {
@@ -364,7 +344,8 @@ const App = observer(() => {
         }
     }
 
-    const renderLodModel = () => {
+    const loadNewLodModel = () => {
+        setLoading(true)
         console.log('Receiving LOD model')
         var renderFileRequest = new GetDataRequest();
         renderFileRequest.setDataObject(0); // sets the data object to LODModel
@@ -417,7 +398,7 @@ const App = observer(() => {
             setDimensionZ(dimensionsArray[2])
             setLodNumBytes(response.getLodNumBytes())
         }).catch((err: any) => { console.log(err) }).then(() => {
-            renderLodModel()
+            loadNewLodModel()
         })
     }
 
