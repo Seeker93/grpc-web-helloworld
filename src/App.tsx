@@ -120,14 +120,6 @@ const App = observer(() => {
         return new Float32Array(slicedArray.buffer);
     }
 
-    const convertBlock2 = (incomingData) => { // incoming data is a UInt8Array
-        var i, l = incomingData.length;
-        var outputData = new Float32Array(incomingData.length);
-        for (i = 0; i < l; i++) {
-            outputData[i] = (incomingData[i] - 128) / 128.0;
-        }
-        return outputData;
-    }
 
     useEffect(() => {
         if (totalBytes > 0 && totalBytes === lodNumBytes) {
@@ -139,6 +131,7 @@ const App = observer(() => {
     }, [totalBytes]);
 
     useEffect(() => {
+
         if (totalHqBytes > 0 && totalHqBytes === hqNumBytes) {
             render2DImage()
             setCubeLoaded(true)
@@ -189,7 +182,7 @@ const App = observer(() => {
         console.log(hqData) // raw data
 
         let rawArray = concatArrays(hqData) //Combine byte stream arrays
-        let floatArray = convertBlock2(rawArray) // Combined byte stream array as float
+        let floatArray = convertBlock(rawArray) // Combined byte stream array as float
         console.log(floatArray)
 
         var width = dimensionX, height = dimensionY, depth = 1;
@@ -206,7 +199,6 @@ const App = observer(() => {
             dataType: VtkDataTypes.FLOAT, // values encoding
             name: 'scalars'
         });
-
         var imageData = vtkImageData.newInstance();
         imageData.setOrigin(0, 0, 0);
         imageData.setSpacing(1, 1, 1);
@@ -229,7 +221,7 @@ const App = observer(() => {
         });
 
         localState.setSliceRenderer(sliceRenderer)
-        localState.sliceRenderer.addVolume(actor);
+        localState.sliceRenderer.addVolume(actor);  
         localState.renderWindow.addRenderer(localState.sliceRenderer) // Overlay slice on top of volume after user stops interacting
 
         localState.renderWindow.render();
@@ -389,7 +381,7 @@ const App = observer(() => {
         )
     }
 
-    const decodeHQmodel = () => {  // Not fully implemented yet
+    const decodeHQmodel =() => {  // Not fully implemented yet
         setTotalHqBytes(0)
         setHqData([])
         console.log('Receiving HQ model')
@@ -400,16 +392,15 @@ const App = observer(() => {
         var renderClient = client.getModelData(request, {})
         renderClient.on('data', (response: any, err: any) => {
             if (response) {
-                setTotalHqBytes(totalHqBytes => totalHqBytes + response.getNumBytes())
                 setHqData(hqData => hqData.concat(response.getBytes()))
-                console.log(localState.hqData)
+                setTotalHqBytes(totalHqBytes => totalHqBytes + response.getNumBytes())
             };
             if (err) {
                 console.log(err)
             }
         })
 
-
+       
     }
 
     const renderFile = async () => {
