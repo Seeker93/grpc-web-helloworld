@@ -189,7 +189,8 @@ const App = observer(() => {
         
         let rawArray = concatArrays(localState.hqData) //Combine byte stream arrays
         let floatArray = convertBlock(rawArray) // Combined byte stream array as float
-        
+        console.log(floatArray)
+
         var width = dimensionX, height = dimensionY, depth = 1;
         var size = width * height * depth;
 
@@ -199,7 +200,7 @@ const App = observer(() => {
         }
         
         var scalars = vtkDataArray.newInstance({
-            values: values,
+            values: floatArray,
             numberOfComponents: 1, // number of channels (grayscale)
             dataType: VtkDataTypes.FLOAT, // values encoding
             name: 'scalars'
@@ -388,8 +389,9 @@ const App = observer(() => {
     }
 
     const decodeHQmodel = () => {  // Not fully implemented yet
+        setTotalHqBytes(0)
         console.log('Receiving HQ model')
-
+        
         var request = new GetDataRequest()
         request.setDataObject(1); // sets the data object to HQRender
 
