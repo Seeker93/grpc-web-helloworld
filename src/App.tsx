@@ -102,7 +102,6 @@ const App = observer(() => {
     const [dimensionZ, setDimensionZ] = useState(0);
     const [lodNumBytes, setLodNumBytes] = useState(0);
     const [hqNumBytes, setHqNumBytes] = useState(0);
-    const [hqBytes, setHqBytes] = useState([])
     const [cubeLoaded, setCubeLoaded] = useState(false)
     const [extent, setExtent] = useState(null)
 
@@ -140,8 +139,7 @@ const App = observer(() => {
 
     useEffect(() => {
         if (totalHqBytes > 0 && totalHqBytes === hqNumBytes) {
-            console.log(hqBytes)
-            console.log(rawArray)
+            render2DImage()
             setCubeLoaded(true)
         }
 
@@ -187,8 +185,11 @@ const App = observer(() => {
 
     const render2DImage = () => { // Placeholder method. Just renders a random image
         console.log('Rendering 2d image')
-        console.log(localState.hqData)
-    
+        console.log(localState.hqData) // raw data
+        
+        let rawArray = concatArrays(localState.hqData) //Combine byte stream arrays
+        let floatArray = convertBlock(rawArray) // Combined byte stream array as float
+        
         var width = dimensionX, height = dimensionY, depth = 1;
         var size = width * height * depth;
 
@@ -386,14 +387,14 @@ const App = observer(() => {
         )
     }
 
-    const decodeHQmodel = async () => {  // Not fully implemented yet
+    const decodeHQmodel = () => {  // Not fully implemented yet
         console.log('Receiving HQ model')
 
         var request = new GetDataRequest()
         request.setDataObject(1); // sets the data object to HQRender
 
         var renderClient = client.getModelData(request, {})
-        await renderClient.on('data', (response: any, err: any) => {
+         renderClient.on('data', (response: any, err: any) => {
             if (response) {
                 setTotalHqBytes(totalHqBytes => totalHqBytes + response.getNumBytes())
                 localState.setHqData(localState.hqData.concat(response.getBytes()))
@@ -404,12 +405,7 @@ const App = observer(() => {
             }
         })
 
-        function sleep(ms) {
-            return new Promise(resolve => setTimeout(resolve, ms));
-        }
-
-        await sleep(200)
-        render2DImage()
+    
     }
 
     const renderFile = async () => {
