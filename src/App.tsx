@@ -95,6 +95,7 @@ const App = observer(() => {
     const [filenames, setFileNames] = useState([])
     const [rawArray, setRawArray] = useState([])
     const [loading, setLoading] = useState(false)
+    const [hqData, setHqData] = useState([])
     const [totalBytes, setTotalBytes] = useState(0);
     const [totalHqBytes, setTotalHqBytes] = useState(0);
     const [dimensionX, setDimensionX] = useState(0);
@@ -119,7 +120,7 @@ const App = observer(() => {
         return new Float32Array(slicedArray.buffer);
     }
 
-    const convertBlock2 = (incomingData)=> { // incoming data is a UInt8Array
+    const convertBlock2 = (incomingData) => { // incoming data is a UInt8Array
         var i, l = incomingData.length;
         var outputData = new Float32Array(incomingData.length);
         for (i = 0; i < l; i++) {
@@ -185,10 +186,10 @@ const App = observer(() => {
 
     const render2DImage = () => { // Placeholder method. Just renders a random image
         console.log('Rendering 2d image')
-        console.log(localState.hqData) // raw data
-        
-        let rawArray = concatArrays(localState.hqData) //Combine byte stream arrays
-        let floatArray = convertBlock(rawArray) // Combined byte stream array as float
+        console.log(hqData) // raw data
+
+        let rawArray = concatArrays(hqData) //Combine byte stream arrays
+        let floatArray = convertBlock2(rawArray) // Combined byte stream array as float
         console.log(floatArray)
 
         var width = dimensionX, height = dimensionY, depth = 1;
@@ -198,7 +199,7 @@ const App = observer(() => {
         for (var i = 0; i < size; i++) {
             values[i] = Math.random();
         }
-        
+
         var scalars = vtkDataArray.newInstance({
             values: floatArray,
             numberOfComponents: 1, // number of channels (grayscale)
@@ -390,16 +391,17 @@ const App = observer(() => {
 
     const decodeHQmodel = () => {  // Not fully implemented yet
         setTotalHqBytes(0)
+        setHqData([])
         console.log('Receiving HQ model')
-        
+
         var request = new GetDataRequest()
         request.setDataObject(1); // sets the data object to HQRender
 
         var renderClient = client.getModelData(request, {})
-         renderClient.on('data', (response: any, err: any) => {
+        renderClient.on('data', (response: any, err: any) => {
             if (response) {
                 setTotalHqBytes(totalHqBytes => totalHqBytes + response.getNumBytes())
-                localState.setHqData(localState.hqData.concat(response.getBytes()))
+                setHqData(hqData => hqData.concat(response.getBytes()))
                 console.log(localState.hqData)
             };
             if (err) {
@@ -407,7 +409,7 @@ const App = observer(() => {
             }
         })
 
-    
+
     }
 
     const renderFile = async () => {
