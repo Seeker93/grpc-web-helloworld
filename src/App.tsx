@@ -152,6 +152,7 @@ const App = observer(() => {
         }
     }, [localState.planeState, localState.axesChanged, localState.lodMemorySize]);
 
+
     function concatArrays(arrayToConcat: any) { // a, b TypedArray of same type
         let array = arrayToConcat
 
@@ -177,6 +178,8 @@ const App = observer(() => {
 
     const render2DImage = () => { // Placeholder method. Just renders a random image
         console.log('Rendering 2d image')
+        console.log(localState.hqData)
+        
         var width = dimensionX, height = dimensionY, depth = 1;
         var size = width * height * depth;
 
@@ -184,7 +187,6 @@ const App = observer(() => {
         for (var i = 0; i < size; i++) {
             values[i] = Math.random();
         }
-
         var scalars = vtkDataArray.newInstance({
             values: values,
             numberOfComponents: 1, // number of channels (grayscale)
@@ -374,29 +376,29 @@ const App = observer(() => {
         )
     }
 
-    const decodeHQmodel = () => {  // Not fully implemented yet
-        // console.log('Receiving HQ model')
+    const decodeHQmodel = async () => {  // Not fully implemented yet
+        console.log('Receiving HQ model')
 
-        // var request = new GetDataRequest()
-        // request.setDataObject(1); // sets the data object to HQRender
+        var request = new GetDataRequest()
+        request.setDataObject(1); // sets the data object to HQRender
 
-        // var renderClient = client.getModelData(request, {})
-        // await renderClient.on('data', (response: any, err: any) => {
-        //     if (response) {
-        //         setTotalHqBytes(totalHqBytes => totalHqBytes + response.getNumBytes())
-        //         localState.setHqData(response.getBytes())
-        //         console.log(localState.hqData)
-        //     };
-        //     if (err) {
-        //         console.log(err)
-        //     }
-        // })
+        var renderClient = client.getModelData(request, {})
+        await renderClient.on('data', (response: any, err: any) => {
+            if (response) {
+                setTotalHqBytes(totalHqBytes => totalHqBytes + response.getNumBytes())
+                localState.setHqData(()=>response.getBytes())
+                console.log(localState.hqData)
+            };
+            if (err) {
+                console.log(err)
+            }
+        })
 
-        // function sleep(ms) {
-        //     return new Promise(resolve => setTimeout(resolve, ms));
-        // }
+        function sleep(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
 
-        // await sleep(200)
+        await sleep(200)
         render2DImage()
     }
 
