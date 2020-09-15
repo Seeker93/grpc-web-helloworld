@@ -32,8 +32,6 @@ import classNames from 'classnames/bind';
 const { FileDetails, FilesRequest, CameraInfo, GetDataRequest } = require('./voxualize-protos/voxualize_pb.js');
 const { GreeterPromiseClient } = require('./voxualize-protos/voxualize_grpc_web_pb.js');
 
-
-
 const App = observer(() => {
 
     const localState = useLocalStore(() => ({
@@ -122,33 +120,6 @@ const App = observer(() => {
         return new Float32Array(slicedArray.buffer);
     }
 
-    function yuv420ProgPlanarToRgb(yuv, width, height) {
-        const frameSize = width * height;
-        const halfWidth = Math.floor(width / 2);
-        const uStart = frameSize;
-        const vStart = frameSize + Math.floor(frameSize / 4);
-        const rgb = []
-
-        for (let y = 0; y < height; y++) {
-            for (let x = 0; x < width; x++) {
-                const yy = yuv[y * width + x];
-                const colorIndex = Math.floor(y / 2) * halfWidth + Math.floor(x / 2);
-                const uu = yuv[uStart + colorIndex] - 128;
-                const vv = yuv[vStart + colorIndex] - 128;
-
-                let r = yy + 1.402 * vv;
-                let g = yy - 0.344 * uu - 0.714 * vv;
-                let b = yy + 1.772 * uu;
-
-                rgb.push(r)
-                rgb.push(g)
-                rgb.push(b)
-            }
-        }
-
-        return rgb
-    }
-
     useEffect(() => {
         if (totalBytes > 0 && totalBytes === lodNumBytes) {
             setCubeLoaded(true)
@@ -232,7 +203,6 @@ const App = observer(() => {
 
         var actor = vtkImageSlice.newInstance();
         actor.setMapper(mapper);
-
         initProps(actor.getProperty());
 
         var view3d = document.getElementById("view3d");
@@ -248,19 +218,6 @@ const App = observer(() => {
         localState.renderWindow.addRenderer(localState.sliceRenderer) // Overlay slice on top of volume after user stops interacting
 
         localState.renderWindow.render();
-
-        // const widget = vtkImageCroppingRegionsWidget.newInstance();
-
-        // // widget.setInteractor(interactor);
-
-        // // widget.setVolumeMapper(mapper);
-        // // widget.setHandleSize(15); // in pixels
-        // // widget.setEnabled(true);
-
-        // // widget.setCornerHandlesEnabled(true);
-        // // widget.setEdgeHandlesEnabled(true);
-
-        //localState.setWidgetState(widget)
 
         function initProps(property) {
             property.setRGBTransferFunction(0, newColorFunction());
@@ -531,9 +488,6 @@ const App = observer(() => {
                 </div>
                 <div className={"d-flex justify-content-end px-5 py-2"}>
                     <button className="col btn btn-success " onClick={renderFile}>Render</button>
-                </div>
-                <div className={"d-flex justify-content-end px-5 py-2"}>
-                    <button className="col btn btn-success " onClick={render2DImage}>Render2D</button>
                 </div>
             </div>
 
