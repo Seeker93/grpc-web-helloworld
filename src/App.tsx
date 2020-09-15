@@ -46,7 +46,7 @@ const App = observer(() => {
         lodMemorySize: 10,
         openGlWindow: null,
         actor: null,
-        hqData: null,
+        hqData: [],
         sliceRenderer: null,
         setPlaneState(plane: any) {
             localState.planeState = plane
@@ -120,6 +120,15 @@ const App = observer(() => {
         return new Float32Array(slicedArray.buffer);
     }
 
+    const convertBlock2 = (incomingData)=> { // incoming data is a UInt8Array
+        var i, l = incomingData.length;
+        var outputData = new Float32Array(incomingData.length);
+        for (i = 0; i < l; i++) {
+            outputData[i] = (incomingData[i] - 128) / 128.0;
+        }
+        return outputData;
+    }
+
     useEffect(() => {
         if (totalBytes > 0 && totalBytes === lodNumBytes) {
             setCubeLoaded(true)
@@ -179,7 +188,7 @@ const App = observer(() => {
     const render2DImage = () => { // Placeholder method. Just renders a random image
         console.log('Rendering 2d image')
         console.log(localState.hqData)
-        
+    
         var width = dimensionX, height = dimensionY, depth = 1;
         var size = width * height * depth;
 
@@ -187,6 +196,7 @@ const App = observer(() => {
         for (var i = 0; i < size; i++) {
             values[i] = Math.random();
         }
+        
         var scalars = vtkDataArray.newInstance({
             values: values,
             numberOfComponents: 1, // number of channels (grayscale)
@@ -386,7 +396,7 @@ const App = observer(() => {
         await renderClient.on('data', (response: any, err: any) => {
             if (response) {
                 setTotalHqBytes(totalHqBytes => totalHqBytes + response.getNumBytes())
-                localState.setHqData(()=>response.getBytes())
+                localState.setHqData(localState.hqData.concat(response.getBytes()))
                 console.log(localState.hqData)
             };
             if (err) {
