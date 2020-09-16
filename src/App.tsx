@@ -87,8 +87,8 @@ const App = observer(() => {
         setSliceRenderer(slice: any) {
             localState.sliceRenderer = slice;
         },
-        setLodMemorySize(size:number){
-            localState.lodMemorySize=size;
+        setLodMemorySize(size: number) {
+            localState.lodMemorySize = size;
         }
 
     }))
@@ -125,6 +125,8 @@ const App = observer(() => {
 
 
     useEffect(() => {
+        console.log('total: ', totalBytes)
+        console.log('lod: ', lodNumBytes)
         if (totalBytes > 0 && totalBytes === lodNumBytes) {
             setCubeLoaded(true)
             renderDataCube()
@@ -142,15 +144,18 @@ const App = observer(() => {
 
     }, [totalHqBytes]);
 
-    useEffect(() => { // Called whenever the cropping planes are changed or when memory size is changed
-        if (localState.planeState !== null && localState.renderer !== null) {
+    useEffect(() => { // Called whenever the memory size is changed
+        console.log('gets outside loop')
+        if (localState.renderer !== null) {
+            console.log('gets here')
             let request = captureCameraInfo();
             client.getNewROILODSize(request, {}).then((response: any) => {
+                console.log(response.getTrueSizeLodBytes())
                 setLodNumBytes(response.getTrueSizeLodBytes())  // Set the number of bytes in the LOD model to the new value
             }).catch((err: any) => {
                 console.log(err)
             }).then(() => {
-              loadNewLodModel() // rendering LOD model for now. Will change when hybrid rendering is in place
+                loadNewLodModel() // rendering LOD model for now. Will change when hybrid rendering is in place
             })
         }
     }, [localState.lodMemorySize]);
@@ -188,7 +193,7 @@ const App = observer(() => {
         console.log(floatArray)
 
         var width = 600, height = 600, depth = 1;
-      
+
 
         var scalars = vtkDataArray.newInstance({
             values: rawArray,
@@ -196,7 +201,7 @@ const App = observer(() => {
             dataType: VtkDataTypes.UNSIGNED_CHAR, // values encoding
             name: 'scalars'
         });
-        
+
         var imageData = vtkImageData.newInstance();
         imageData.setOrigin(0, 0, 0);
         imageData.setSpacing(1.0, (width / height).toFixed(2), (width / depth).toFixed(2));
@@ -218,13 +223,13 @@ const App = observer(() => {
         });
 
         localState.setSliceRenderer(sliceRenderer)
-        localState.sliceRenderer.addVolume(actor);  
+        localState.sliceRenderer.addVolume(actor);
 
         localState.renderWindow.addRenderer(localState.sliceRenderer) // Overlay slice on top of volume after user stops interacting
 
         localState.renderWindow.render();
 
-   
+
 
     }
 
@@ -345,7 +350,8 @@ const App = observer(() => {
     }
 
     const loadNewLodModel = () => {
-        setLoading(true)
+        setLoading(true);
+        setTotalBytes(0);
         console.log('Receiving LOD model')
         var renderFileRequest = new GetDataRequest();
         renderFileRequest.setDataObject(0); // sets the data object to LODModel
@@ -362,7 +368,7 @@ const App = observer(() => {
         )
     }
 
-    const decodeHQmodel =() => {  // Not fully implemented yet
+    const decodeHQmodel = () => {  // Not fully implemented yet
         setTotalHqBytes(0)
         setHqData([])
         console.log('Receiving HQ model')
@@ -381,7 +387,7 @@ const App = observer(() => {
             }
         })
 
-       
+
     }
 
     const renderFile = async () => {
@@ -427,6 +433,7 @@ const App = observer(() => {
             request.setWindowHeight(heightRef.current)
             request.setViewUpList(viewUpList)
             request.setDistance(distance)
+            request.setTargetSizeLodBytes(localState.lodMemorySize)
             console.log("Position: " + positionList)
             console.log("Focal point: " + focalPointList)
             console.log("Width: " + widthRef.current)

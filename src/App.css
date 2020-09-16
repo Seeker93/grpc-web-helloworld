@@ -18,8 +18,10 @@
 .rendering-window {
   display: flex;
   justify-content: center;
-  height:600px;  
+  height:600px;
+  margin:20px;
 }
+
 
 
 .App-link {

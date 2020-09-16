@@ -4,14 +4,15 @@ import { Slider } from "@blueprintjs/core";
 import { observer } from 'mobx-react'
 
 export const LodSizeSlider = observer((props: any) => {
-    const { localState } = props //import shared stae from props
+    const { localState } = props //import shared state from props
     const [memorySize, setMemorySize] = useState(10)
-    // Adjusting the slider sets teh state variable
+    // Adjusting the slider sets the state variable
 
     const onSizeChangeRelease = (value: number) => {
         localState.setLodMemorySize(value)
+    
     }
-
+    console.log(localState.lodMemorySize)
     return (
         <div className={"text-white flex-start"}>
             <h6 className="text-light pb-3 mt-5">Select cube memory size (mb)</h6>
