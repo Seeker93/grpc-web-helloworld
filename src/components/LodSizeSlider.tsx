@@ -14,7 +14,7 @@ export const LodSizeSlider = observer((props: any) => {
     }
     console.log(localState.lodMemorySize)
     return (
-        <div className={"text-white flex-start"}>
+        <div className={"text-white flex-start mb-3"}>
             <h6 className="text-light pb-3 mt-5">Select cube memory size (mb)</h6>
             <Slider
                 min={0}

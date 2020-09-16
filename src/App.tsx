@@ -43,6 +43,7 @@ const App = observer(() => {
         volumeActor: null,
         colorTransferFunction: null,
         axesChanged: false,
+        axesReleased: false,
         lodMemorySize: 10,
         openGlWindow: null,
         actor: null,
@@ -73,6 +74,9 @@ const App = observer(() => {
         },
         flipAxesChanged() {
             localState.axesChanged = !localState.axesChanged;
+        },
+        flipAxesReleased() {
+            localState.axesReleased = !localState.axesReleased;
         },
         setOpenGlWindow(window: any) {
             localState.openGlWindow = window;
@@ -112,6 +116,7 @@ const App = observer(() => {
     const [hqNumBytes, setHqNumBytes] = useState(0);
     const [cubeLoaded, setCubeLoaded] = useState(false)
     const [extent, setExtent] = useState(null)
+    const [newModelRequested, setNewModelRequested] = useState(false)
     const renderWindowLodRef = useRef(null);
 
     const widthRef = useRef(0);
@@ -145,6 +150,16 @@ const App = observer(() => {
 
     }, [totalHqBytes]);
 
+    useEffect(() => {
+
+        removeImage()
+
+    }, [localState.axesChanged]);
+
+    useEffect(() => {
+        debounceLog()
+    }, [localState.axesReleased])
+
     useEffect(() => { // Called whenever the memory size is changed
         console.log('gets outside loop')
         if (localState.renderer !== null) {
@@ -161,7 +176,7 @@ const App = observer(() => {
                 loadNewLodModel() // rendering LOD model for now. Will change when hybrid rendering is in place
             })
         }
-    }, [localState.lodMemorySize]);
+    }, [localState.lodMemorySize, newModelRequested]);
 
 
     function concatArrays(arrayToConcat: any) { // a, b TypedArray of same type
@@ -184,8 +199,10 @@ const App = observer(() => {
     }
 
 
-    const onClick2D = useCallback(() => { //Usecallback makes sure that all signatures of this same method are the same
-        localState.renderWindow.removeRenderer(localState.sliceRenderer) // Remove slice when the user clicks the static image
+    const removeImage = useCallback(() => { //Usecallback makes sure that all signatures of this same method are the same
+        if (localState.renderWindow) {
+            localState.renderWindow.removeRenderer(localState.sliceRenderer) // Remove slice when the user clicks the static image
+        }
     }, [])
 
 
@@ -216,7 +233,7 @@ const App = observer(() => {
 
         var view3d = document.getElementById("view3d");
 
-        view3d.addEventListener('mousedown', onClick2D); // Switches to LOD on mouse click
+        view3d.addEventListener('mousedown', removeImage); // Switches to LOD on mouse click
 
         const sliceRenderer = vtkRenderer.newInstance({
             background: [220, 185, 152]
@@ -236,7 +253,7 @@ const App = observer(() => {
             var view3d = document.getElementById("view3d");
 
             view3d.removeEventListener('mouseup', debounceLog)
-            view3d.removeEventListener('mousedown', onClick2D)
+            view3d.removeEventListener('mousedown', removeImage)
 
             localState.openGlWindow.setContainer(null)
             localState.renderer.removeAllActors()
@@ -391,7 +408,7 @@ const App = observer(() => {
         )
     }
 
-    const decodeHQmodel = () => {  // Not fully implemented yet
+    const getHqModel = () => {  // Not fully implemented yet
         setTotalHqBytes(0)
         setHqData([])
         console.log('Receiving HQ model')
@@ -480,7 +497,7 @@ const App = observer(() => {
             setHqNumBytes(response.getSizeInBytes())
         }).catch((err: any) => { console.log(err) }).then(() => {
             console.log('gets here')
-            decodeHQmodel()
+            getHqModel()
         })
     }, [])
 
@@ -516,8 +533,14 @@ const App = observer(() => {
             </div>
 
             <div className="fixed-bottom bg-dark h-25 justify-content-center row">
+
                 <div className={"col col-lg-2"}>
-                    {cubeLoaded && <LodSizeSlider localState={localState} />}
+                    {cubeLoaded &&
+                        <div className={"col"}>
+                            <LodSizeSlider localState={localState} /> <br />
+                            <button className="btn btn-success " onClick={() => setNewModelRequested(!newModelRequested)}>Request new model</button>
+                        </div>
+                    }
                 </div>
                 <div className={"col col-lg-6"}>
                     {cubeLoaded && <AxisSlider extent={extent} localState={localState} />}

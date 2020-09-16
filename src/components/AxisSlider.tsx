@@ -41,6 +41,7 @@ export const AxisSlider = observer((props: any) => {
     }
 
     const onCoordChange = (value: number, index: number) => {
+        localState.flipAxesChanged()
         let newPlaneArray = localState.planeState
         newPlaneArray[index] = value
         localState.widget.setCroppingPlanes(...newPlaneArray)
@@ -48,7 +49,7 @@ export const AxisSlider = observer((props: any) => {
     }
 
     const onSliderRelease = () =>{
-        localState.flipAxesChanged()
+        localState.flipAxesReleased()
     }
 
     const onClickReset = () => {
