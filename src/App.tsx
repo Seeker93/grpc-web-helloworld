@@ -151,13 +151,13 @@ const App = observer(() => {
     }, [totalHqBytes]);
 
     useEffect(() => {
-
         removeImage()
-
     }, [localState.axesChanged]);
 
     useEffect(() => {
-        debounceLog()
+        if (cubeLoaded) {
+            debounceLog()
+        }
     }, [localState.axesReleased])
 
     useEffect(() => { // Called whenever the memory size is changed
