@@ -74,9 +74,6 @@ const App = observer(() => {
         flipAxesChanged() {
             localState.axesChanged = !localState.axesChanged;
         },
-        setLodMemorySizrte(memorySize: number) {
-            localState.lodMemorySize = memorySize;
-        },
         setOpenGlWindow(window: any) {
             localState.openGlWindow = window;
         },
@@ -152,8 +149,10 @@ const App = observer(() => {
             setLoading(true)
             let request = captureCameraInfo();
             client.getNewROILODSize(request, {}).then((response: any) => {
-                console.log(response.getTrueSizeLodBytes())
                 setLodNumBytes(response.getTrueSizeLodBytes())  // Set the number of bytes in the LOD model to the new value
+                setDimensionX(response.getDimensionsLodList()[0]) //Set new dimensions
+                setDimensionY(response.getDimensionsLodList()[1])
+                setDimensionZ(response.getDimensionsLodList()[2])
             }).catch((err: any) => {
                 console.log(err)
             }).then(() => {
@@ -258,7 +257,7 @@ const App = observer(() => {
             var imageData = vtkImageData.newInstance();
             imageData.setOrigin(0, 0, 0);
             imageData.setSpacing(1.0, (width / height).toFixed(2), (width / depth).toFixed(2));
-            localState.setPlaneState([0, dimensionX - 1, 0, dimensionY - 1, 0, dimensionZ - 1])
+            localState.setPlaneState([0, width - 1, 0, height - 1, 0, depth - 1])
 
             imageData.setExtent(localState.planeState);
             imageData.getPointData().setScalars(scalars);
@@ -315,7 +314,7 @@ const App = observer(() => {
             widget.setInteractor(interactor);
 
             widget.setVolumeMapper(mapper);
-            widget.setHandleSize(15); // in pixels
+            widget.setHandleSize(10); // in pixels
             widget.setEnabled(true);
 
             widget.setCornerHandlesEnabled(true);
@@ -359,6 +358,7 @@ const App = observer(() => {
     const loadNewLodModel = () => {
         setLoading(true);
         setTotalBytes(0);
+        setRawArray([])
         console.log('Receiving LOD model')
         var renderFileRequest = new GetDataRequest();
         renderFileRequest.setDataObject(0); // sets the data object to LODModel
@@ -393,8 +393,6 @@ const App = observer(() => {
                 console.log(err)
             }
         })
-
-
     }
 
     const renderFile = async () => {
@@ -465,6 +463,7 @@ const App = observer(() => {
         await client.getHQRenderSize(request, {}).then((response: any) => {
             setHqNumBytes(response.getSizeInBytes())
         }).catch((err: any) => { console.log(err) }).then(() => {
+            console.log('gets here')
             decodeHQmodel()
         })
     }, 250)
