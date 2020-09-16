@@ -47,7 +47,9 @@ const App = observer(() => {
         openGlWindow: null,
         actor: null,
         hqData: [],
+        mapper:null,
         sliceRenderer: null,
+        interactor:null,
         setPlaneState(plane: any) {
             localState.planeState = plane
         },
@@ -89,8 +91,10 @@ const App = observer(() => {
         },
         setLodMemorySize(size: number) {
             localState.lodMemorySize = size;
-        }
-
+        },
+        setMapper(mapper:any){
+            localState.mapper = mapper;
+        },
     }))
 
 
@@ -125,8 +129,6 @@ const App = observer(() => {
 
 
     useEffect(() => {
-        console.log('total: ', totalBytes)
-        console.log('lod: ', lodNumBytes)
         if (totalBytes > 0 && totalBytes === lodNumBytes) {
             setCubeLoaded(true)
             renderDataCube()
@@ -147,7 +149,7 @@ const App = observer(() => {
     useEffect(() => { // Called whenever the memory size is changed
         console.log('gets outside loop')
         if (localState.renderer !== null) {
-            console.log('gets here')
+            setLoading(true)
             let request = captureCameraInfo();
             client.getNewROILODSize(request, {}).then((response: any) => {
                 console.log(response.getTrueSizeLodBytes())
@@ -186,14 +188,9 @@ const App = observer(() => {
 
     const render2DImage = () => { // Placeholder method. Just renders a random image
         console.log('Rendering 2d image')
-        console.log(hqData) // raw data
-
         let rawArray = concatArrays(hqData) //Combine byte stream arrays
-        let floatArray = convertBlock(rawArray) // Combined byte stream array as float
-        console.log(floatArray)
 
         var width = 600, height = 600, depth = 1;
-
 
         var scalars = vtkDataArray.newInstance({
             values: rawArray,
@@ -215,7 +212,6 @@ const App = observer(() => {
         actor.setMapper(mapper);
 
         var view3d = document.getElementById("view3d");
-
         view3d.addEventListener('mousedown', onClick2D); // Switches to LOD on mouse click
 
         const sliceRenderer = vtkRenderer.newInstance({
@@ -224,18 +220,26 @@ const App = observer(() => {
 
         localState.setSliceRenderer(sliceRenderer)
         localState.sliceRenderer.addVolume(actor);
-
         localState.renderWindow.addRenderer(localState.sliceRenderer) // Overlay slice on top of volume after user stops interacting
-
         localState.renderWindow.render();
 
+    }
 
+    const initializeRenderItems = () => {
+      
+        if (localState.renderer) {
+            console.log('gets to removeall1')
+            localState.openGlWindow.setContainer(null)
+            localState.renderer.removeAllActors()
+            localState.renderer.removeAllVolumes()
+
+        }
 
     }
 
     const renderDataCube = () => {
         setLoading(true)
-
+        initializeRenderItems()
         function createCube() {
             let width = dimensionX; let height = dimensionY; let depth = dimensionZ;
 
@@ -263,16 +267,17 @@ const App = observer(() => {
 
             const cropFilter = vtkImageCropFilter.newInstance();
             var mapper = vtkVolumeMapper.newInstance();
+            localState.setMapper(mapper)
             var volumeActor = vtkVolume.newInstance();
+            localState.setVolumeActor(volumeActor)
 
             cropFilter.setInputData(imageData);
-            mapper.setInputConnection(cropFilter.getOutputPort())
-            mapper.setBlendModeToComposite();
+            localState.mapper.setInputConnection(cropFilter.getOutputPort())
+            localState.mapper.setBlendModeToComposite();
             cropFilter.setCroppingPlanes(...imageData.getExtent())
 
-            volumeActor.setMapper(mapper);
+            localState.volumeActor.setMapper(mapper);
             initProps(volumeActor.getProperty());
-            localState.setVolumeActor(volumeActor)
 
             var view3d = document.getElementById("view3d");
             view3d.addEventListener('mouseup', debounceLog);
@@ -281,10 +286,12 @@ const App = observer(() => {
                 background: [220, 185, 152]
             });
 
-            renderer.addVolume(volumeActor);
-            renderer.getActiveCamera().elevation(30);
-            renderer.getActiveCamera().azimuth(45);
-            renderer.resetCamera();
+            localState.setRenderer(renderer)
+
+            localState.renderer.addVolume(localState.volumeActor);
+            localState.renderer.getActiveCamera().elevation(30);
+            localState.renderer.getActiveCamera().azimuth(45);
+            localState.renderer.resetCamera();
             localState.renderWindow.render();
             localState.setRenderer(renderer)
             localState.renderWindow.addRenderer(renderer);
@@ -474,6 +481,7 @@ const App = observer(() => {
         <div className="container-fluid" >
             <div className="row bg-dark">
                 <h3 className="col text-light mt-auto mb-auto ">Voxualize</h3>
+             
                 <div className={"d-flex align-items-center justify-content-end"}>
                     <FileSelector className="col flex-end" files={filenames} name={"Choose a file ..."} onClick={requestFiles} onItemSelected={(file: any) => { onFileChosen(file) }} />
                 </div>
@@ -481,12 +489,14 @@ const App = observer(() => {
                     <button className="col btn btn-success " onClick={renderFile}>Render</button>
                 </div>
             </div>
-
-            <div className={classNames('rendering-window', 'row')} id="view3d" ref={renderWindowLodRef}>
-                {/* Rendering happens in this div */}
+            <div className={'loading-div'}>
                 {loading &&
                     <img src={logo} className="App-logo" alt="logo" />
                 }
+                </div>
+            <div className={classNames('rendering-window', 'row')} id="view3d" ref={renderWindowLodRef}>
+                {/* Rendering happens in this div */}
+               
             </div>
 
             <div className="fixed-bottom bg-dark h-25 justify-content-center row">
