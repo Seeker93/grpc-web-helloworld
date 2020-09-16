@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { FileSelector } from './components/FileSelector'
 import { AxisSlider } from './components/AxisSlider'
 import { LodSizeSlider } from './components/LodSizeSlider'
@@ -47,9 +47,9 @@ const App = observer(() => {
         openGlWindow: null,
         actor: null,
         hqData: [],
-        mapper:null,
+        mapper: null,
         sliceRenderer: null,
-        interactor:null,
+        interactor: null,
         setPlaneState(plane: any) {
             localState.planeState = plane
         },
@@ -89,8 +89,11 @@ const App = observer(() => {
         setLodMemorySize(size: number) {
             localState.lodMemorySize = size;
         },
-        setMapper(mapper:any){
+        setMapper(mapper: any) {
             localState.mapper = mapper;
+        },
+        setInteractor(interactor: any) {
+            interactor = interactor;
         },
     }))
 
@@ -109,7 +112,6 @@ const App = observer(() => {
     const [hqNumBytes, setHqNumBytes] = useState(0);
     const [cubeLoaded, setCubeLoaded] = useState(false)
     const [extent, setExtent] = useState(null)
-
     const renderWindowLodRef = useRef(null);
 
     const widthRef = useRef(0);
@@ -181,9 +183,11 @@ const App = observer(() => {
         return mergedArray
     }
 
-    const onClick2D = () => {
+
+    const onClick2D = useCallback(() => { //Usecallback makes sure that all signatures of this same method are the same
         localState.renderWindow.removeRenderer(localState.sliceRenderer) // Remove slice when the user clicks the static image
-    }
+    }, [])
+
 
     const render2DImage = () => { // Placeholder method. Just renders a random image
         console.log('Rendering 2d image')
@@ -211,6 +215,7 @@ const App = observer(() => {
         actor.setMapper(mapper);
 
         var view3d = document.getElementById("view3d");
+
         view3d.addEventListener('mousedown', onClick2D); // Switches to LOD on mouse click
 
         const sliceRenderer = vtkRenderer.newInstance({
@@ -224,21 +229,30 @@ const App = observer(() => {
 
     }
 
-    const initializeRenderItems = () => {
-      
+    const resetRenderItems = () => {
+
         if (localState.renderer) {
             console.log('gets to removeall1')
+            var view3d = document.getElementById("view3d");
+
+            view3d.removeEventListener('mouseup', debounceLog)
+            view3d.removeEventListener('mousedown', onClick2D)
+
             localState.openGlWindow.setContainer(null)
             localState.renderer.removeAllActors()
             localState.renderer.removeAllVolumes()
-
         }
 
+        if (localState.sliceRenderer) {
+            localState.sliceRenderer.removeAllActors()
+            localState.sliceRenderer.removeAllVolumes()
+
+        }
     }
 
     const renderDataCube = () => {
         setLoading(true)
-        initializeRenderItems()
+        resetRenderItems()
         function createCube() {
             let width = dimensionX; let height = dimensionY; let depth = dimensionZ;
 
@@ -279,6 +293,7 @@ const App = observer(() => {
             initProps(volumeActor.getProperty());
 
             var view3d = document.getElementById("view3d");
+
             view3d.addEventListener('mouseup', debounceLog);
 
             const renderer = vtkRenderer.newInstance({
@@ -303,6 +318,7 @@ const App = observer(() => {
             localState.openGlWindow.setSize(dims.width, dims.height)
 
             const interactor = vtkRenderWindowInteractor.newInstance();
+            localState.setInteractor(interactor)
             interactor.setView(localState.openGlWindow);
             interactor.initialize();
             interactor.bindEvents(view3d);
@@ -457,16 +473,17 @@ const App = observer(() => {
     }
 
 
-    const debounceLog = debounce(async () => {
+    const debounceLog = useCallback(() => {
         let request = captureCameraInfo()
 
-        await client.getHQRenderSize(request, {}).then((response: any) => {
+        client.getHQRenderSize(request, {}).then((response: any) => {
             setHqNumBytes(response.getSizeInBytes())
         }).catch((err: any) => { console.log(err) }).then(() => {
             console.log('gets here')
             decodeHQmodel()
         })
-    }, 250)
+    }, [])
+
 
 
     const requestFiles = () => {
@@ -480,7 +497,7 @@ const App = observer(() => {
         <div className="container-fluid" >
             <div className="row bg-dark">
                 <h3 className="col text-light mt-auto mb-auto ">Voxualize</h3>
-             
+
                 <div className={"d-flex align-items-center justify-content-end"}>
                     <FileSelector className="col flex-end" files={filenames} name={"Choose a file ..."} onClick={requestFiles} onItemSelected={(file: any) => { onFileChosen(file) }} />
                 </div>
@@ -492,10 +509,10 @@ const App = observer(() => {
                 {loading &&
                     <img src={logo} className="App-logo" alt="logo" />
                 }
-                </div>
+            </div>
             <div className={classNames('rendering-window', 'row')} id="view3d" ref={renderWindowLodRef}>
                 {/* Rendering happens in this div */}
-               
+
             </div>
 
             <div className="fixed-bottom bg-dark h-25 justify-content-center row">
