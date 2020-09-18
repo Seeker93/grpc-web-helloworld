@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { FileSelector } from './components/FileSelector'
 import { AxisSlider } from './components/AxisSlider'
 import { LodSizeSlider } from './components/LodSizeSlider'
-
 import './App.css';
 import { H264Decoder } from 'h264decoder';
 
@@ -132,6 +131,30 @@ const App = observer(() => {
     }
 
 
+
+    function YUV2RBG(yuv: Uint8Array, width: number, height: number) {
+        const uStart = width * height;
+        const halfWidth = (width >>> 1);
+        const vStart = uStart + (uStart >>> 2);
+        const rgb = new Uint8Array(uStart * 3);
+
+        let i = 0;
+        for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+                const yy = yuv[y * width + x];
+                const colorIndex = (y >>> 1) * halfWidth + (x >>> 1);
+                const uu = yuv[uStart + colorIndex] - 128;
+                const vv = yuv[vStart + colorIndex] - 128;
+
+                rgb[i++] = yy + 1.402 * vv;              // R
+                rgb[i++] = yy - 0.344 * uu - 0.714 * vv; // G
+                rgb[i++] = yy + 1.772 * uu;              // B
+            }
+        }
+
+        return rgb;
+    }
+
     useEffect(() => {
         if (totalBytes > 0 && totalBytes === lodNumBytes) {
             setCubeLoaded(true)
@@ -209,12 +232,17 @@ const App = observer(() => {
     const render2DImage = () => { // Placeholder method. Just renders a random image
         console.log('Rendering 2d image')
         let rawArray = concatArrays(hqData) //Combine byte stream arrays
+        let decoder = new H264Decoder();
+        decoder.decode(rawArray)
+        let decodedArray = (decoder.pic)
+   
+        let rgbarray = YUV2RBG(decodedArray, decoder.width, decoder.height)
 
-        var width = 600, height = 600, depth = 1;
+        var width = decoder.width, height = decoder.height, depth = 1;
 
         var scalars = vtkDataArray.newInstance({
-            values: rawArray,
-            numberOfComponents: 4, // number of channels (grayscale)
+            values: rgbarray,
+            numberOfComponents: 3, // number of channels (grayscale)
             dataType: VtkDataTypes.UNSIGNED_CHAR, // values encoding
             name: 'scalars'
         });
@@ -236,7 +264,7 @@ const App = observer(() => {
         view3d.addEventListener('mousedown', removeImage); // Switches to LOD on mouse click
 
         const sliceRenderer = vtkRenderer.newInstance({
-            background: [220, 185, 152]
+            background: [255, 255, 255]
         });
 
         localState.setSliceRenderer(sliceRenderer)
