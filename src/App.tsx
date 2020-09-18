@@ -3,7 +3,6 @@ import { FileSelector } from './components/FileSelector'
 import { AxisSlider } from './components/AxisSlider'
 import { LodSizeSlider } from './components/LodSizeSlider'
 import './App.css';
-import { H264Decoder } from 'h264decoder';
 
 import vtkOpenGLRenderWindow from 'vtk.js/Sources/Rendering/OpenGL/RenderWindow';
 import vtkRenderWindow from 'vtk.js/Sources/Rendering/Core/RenderWindow';
@@ -25,9 +24,12 @@ import vtkInteractorStyleTrackballCamera from 'vtk.js/Sources/Interaction/Style/
 import logo from "./logo.svg";
 import { observer, useLocalStore } from 'mobx-react'
 import { debounce } from './utils/helperFunctions'
+import * as serviceWorker from './serviceWorker';
+
 import { TransferFunctionSlider } from './components/TransferFunctionSlider';
 import classNames from 'classnames/bind';
 
+const worker = require('workerize-loader!./worker'); // eslint-disable-line import/no-webpack-loader-syntax
 const { FileDetails, FilesRequest, CameraInfo, GetDataRequest } = require('./voxualize-protos/voxualize_pb.js');
 const { GreeterPromiseClient } = require('./voxualize-protos/voxualize_grpc_web_pb.js');
 
@@ -125,7 +127,7 @@ const App = observer(() => {
     var client = new GreeterPromiseClient('http://' + window.location.hostname + ':8080', null, null);
 
 
-    const convertBlock = (incomingData) => {
+    const convertBlock = (incomingData: any) => {
         const slicedArray = incomingData.slice();
         return new Float32Array(slicedArray.buffer);
     }
@@ -167,7 +169,7 @@ const App = observer(() => {
     useEffect(() => {
 
         if (totalHqBytes > 0 && totalHqBytes === hqNumBytes) {
-            render2DImage()
+            decode2DImage()
             setCubeLoaded(true)
         }
 
@@ -229,20 +231,33 @@ const App = observer(() => {
     }, [])
 
 
-    const render2DImage = () => { // Placeholder method. Just renders a random image
-        console.log('Rendering 2d image')
-        let rawArray = concatArrays(hqData) //Combine byte stream arrays
-        let decoder = new H264Decoder();
-        decoder.decode(rawArray)
-        let decodedArray = (decoder.pic)
-   
-        let rgbarray = YUV2RBG(decodedArray, decoder.width, decoder.height)
+    const decode2DImage = () => { // We have to use webworkers, because h264decoder uses webassembly, and chrome does not allow heavy webassembly tasks on the main thread
 
-        var width = decoder.width, height = decoder.height, depth = 1;
+        let rawArray = concatArrays(hqData) //Combine byte stream arrays
+        const workerInstance = worker()
+        let decodedArray = new Uint8Array()
+        let rgbArray = new Uint8Array()
+
+        workerInstance.addEventListener('message', (message: any) => { // listen for webworker messages
+            if (message.data instanceof Array) {
+                decodedArray = message.data[0];
+                let width = message.data[1];
+                let height = message.data[2];
+                let depth = 1;
+                rgbArray = YUV2RBG(decodedArray, width, height) // Convert from Yuv to rgb
+                render2DImage(height, width, depth, rgbArray)
+            }
+        })
+
+        workerInstance.decode(rawArray)
+    }
+
+    const render2DImage = (height: number, width: number, depth: number, rgbArray: Uint8Array) => {
+        console.log('Rendering 2d image')
 
         var scalars = vtkDataArray.newInstance({
-            values: rgbarray,
-            numberOfComponents: 3, // number of channels (grayscale)
+            values: rgbArray,
+            numberOfComponents: 3, // number of channels
             dataType: VtkDataTypes.UNSIGNED_CHAR, // values encoding
             name: 'scalars'
         });

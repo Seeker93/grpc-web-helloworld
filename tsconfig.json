@@ -4,7 +4,10 @@
     "lib": [
       "dom",
       "dom.iterable",
-      "esnext"
+      "esnext",
+      "WebWorker",
+      "ES5",
+      "ScriptHost",
     ],
     "allowJs": true,
     "skipLibCheck": true,
@@ -18,7 +21,7 @@
     "isolatedModules": true,
     "noEmit": true,
     "jsx": "react",
-    "experimentalDecorators": true
+    "experimentalDecorators": true,
   },
   "include": [
     "src", "config-overrides.js"
