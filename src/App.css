@@ -16,10 +16,13 @@
 }
 
 .rendering-window {
-  display: flex;
+  display:flex;
   justify-content: center;
+  align-items: flex-start;
   height:500px;
-  margin:20px;
+
+
+
 }
 
 .loading-div{

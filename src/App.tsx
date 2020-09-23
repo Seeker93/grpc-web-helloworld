@@ -16,6 +16,10 @@ import vtkImageCroppingRegionsWidget from 'vtk.js/Sources/Interaction/Widgets/Im
 import { VtkDataTypes } from 'vtk.js/Sources/Common/Core/DataArray/Constants';
 import vtkImageMapper from 'vtk.js/Sources/Rendering/Core/ImageMapper';
 import vtkImageSlice from 'vtk.js/Sources/Rendering/Core/ImageSlice';
+
+import vtkImageReslice from 'vtk.js/Sources/Imaging/Core/ImageReslice';
+import vtkGenericRenderWindow from 'vtk.js/Sources/Rendering/Misc/GenericRenderWindow';
+
 import vtkRenderer from 'vtk.js/Sources/Rendering/Core/Renderer';
 import vtkRenderWindowInteractor from 'vtk.js/Sources/Rendering/Core/RenderWindowInteractor';
 import vtkImageCropFilter from 'vtk.js/Sources/Filters/General/ImageCropFilter';
@@ -243,6 +247,7 @@ const App = observer(() => {
                 decodedArray = message.data[0];
                 let width = message.data[1];
                 let height = message.data[2];
+                console.log(message.data[1], message.data[2])
                 let depth = 1;
                 rgbArray = YUV2RBG(decodedArray, width, height) // Convert from Yuv to rgb
                 render2DImage(height, width, depth, rgbArray)
@@ -253,7 +258,16 @@ const App = observer(() => {
     }
 
     const render2DImage = (height: number, width: number, depth: number, rgbArray: Uint8Array) => {
+        resetRenderItems()
         console.log('Rendering 2d image')
+        const genericRenderWindow = vtkGenericRenderWindow.newInstance({
+            background: [0, 0, 0],
+        });
+        var view2d = document.getElementById("view3d");
+
+        genericRenderWindow.setContainer(view2d);
+        genericRenderWindow.resize()
+        const sliceRenderer = genericRenderWindow.getRenderer();
 
         var scalars = vtkDataArray.newInstance({
             values: rgbArray,
@@ -264,31 +278,35 @@ const App = observer(() => {
 
         var imageData = vtkImageData.newInstance();
         imageData.setOrigin(0, 0, 0);
-        imageData.setSpacing(1.0, (width / height).toFixed(2), (width / depth).toFixed(2));
-        imageData.setExtent(0, width - 1, 0, height - 1, 0, depth - 1);
+        imageData.setSpacing(1.0, 1.0, 1.0);
+
+        imageData.setExtent(0, width - 1, 0, height - 1, 0, 1);
         imageData.getPointData().setScalars(scalars);
 
-        var mapper = vtkImageMapper.newInstance();
-        mapper.setInputData(imageData);
 
-        var actor = vtkImageSlice.newInstance();
-        actor.setMapper(mapper);
+        const imageReslice = vtkImageReslice.newInstance();
+        imageReslice.setOutputDimensionality(2);
+        imageReslice.setInputData(imageData);
 
-        var view3d = document.getElementById("view3d");
+        imageReslice.setBorder(true);
+ 
+        imageReslice.setAutoCropOutput(true);
+        const resliceMapper = vtkImageMapper.newInstance();
+        resliceMapper.setInputConnection(imageReslice.getOutputPort());
+       // resliceMapper.setKSlice(0);
 
-        view3d.addEventListener('mousedown', removeImage); // Switches to LOD on mouse click
+        var resliceActor = vtkImageSlice.newInstance();
 
-        const sliceRenderer = vtkRenderer.newInstance({
-            background: [255, 255, 255]
-        });
+        resliceActor.setMapper(resliceMapper);
+        sliceRenderer.addActor(resliceActor);
 
-        localState.setSliceRenderer(sliceRenderer)
-        localState.sliceRenderer.addVolume(actor);
-        localState.renderWindow.addRenderer(localState.sliceRenderer) // Overlay slice on top of volume after user stops interacting
-        localState.renderWindow.render();
+        sliceRenderer.getActiveCamera().setParallelProjection(true);
+        sliceRenderer.resetCamera();
+
+        const renderWindow = genericRenderWindow.getRenderWindow();
+        renderWindow.render();
 
     }
-
     const resetRenderItems = () => {
 
         if (localState.renderer) {
@@ -299,13 +317,10 @@ const App = observer(() => {
             view3d.removeEventListener('mousedown', removeImage)
 
             localState.openGlWindow.setContainer(null)
-            localState.renderer.removeAllActors()
-            localState.renderer.removeAllVolumes()
         }
 
         if (localState.sliceRenderer) {
-            localState.sliceRenderer.removeAllActors()
-            localState.sliceRenderer.removeAllVolumes()
+
 
         }
     }
@@ -574,7 +589,7 @@ const App = observer(() => {
                 {/* Rendering happens in this div */}
 
             </div>
-
+  
             <div className="fixed-bottom bg-dark h-25 justify-content-center row">
 
                 <div className={"col col-lg-2"}>
