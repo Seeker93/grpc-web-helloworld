@@ -23,10 +23,8 @@ import vtkInteractorStyleTrackballCamera from 'vtk.js/Sources/Interaction/Style/
 
 import logo from "./logo.svg";
 import { observer, useLocalStore } from 'mobx-react'
-import { debounce } from './utils/helperFunctions'
-import * as serviceWorker from './serviceWorker';
+import { debounce, YUV2RBG } from './utils/helperFunctions'
 
-import { TransferFunctionSlider } from './components/TransferFunctionSlider';
 import classNames from 'classnames/bind';
 
 const worker = require('workerize-loader!./worker'); // eslint-disable-line import/no-webpack-loader-syntax
@@ -106,6 +104,7 @@ const App = observer(() => {
     const [filename, setFileName] = useState('')
     const [filenames, setFileNames] = useState([])
     const [rawArray, setRawArray] = useState([])
+    const [fullArray, setFullArray] = useState(null)
     const [loading, setLoading] = useState(false)
     const [hqData, setHqData] = useState([])
     const [totalBytes, setTotalBytes] = useState(0);
@@ -117,7 +116,7 @@ const App = observer(() => {
     const [hqNumBytes, setHqNumBytes] = useState(0);
     const [cubeLoaded, setCubeLoaded] = useState(false)
     const [extent, setExtent] = useState(null)
-    const [newModelRequested, setNewModelRequested] = useState(false)
+
     const renderWindowLodRef = useRef(null);
 
     const widthRef = useRef(0);
@@ -132,36 +131,10 @@ const App = observer(() => {
         return new Float32Array(slicedArray.buffer);
     }
 
-
-
-    function YUV2RBG(yuv: Uint8Array, width: number, height: number) {
-        const uStart = width * height;
-        const halfWidth = (width >>> 1);
-        const vStart = uStart + (uStart >>> 2);
-        const rgb = new Uint8Array(uStart * 3);
-
-        let i = 0;
-        for (let y = 0; y < height; y++) {
-            for (let x = 0; x < width; x++) {
-                const yy = yuv[y * width + x];
-                const colorIndex = (y >>> 1) * halfWidth + (x >>> 1);
-                const uu = yuv[uStart + colorIndex] - 128;
-                const vv = yuv[vStart + colorIndex] - 128;
-
-                rgb[i++] = yy + 1.402 * vv;              // R
-                rgb[i++] = yy - 0.344 * uu - 0.714 * vv; // G
-                rgb[i++] = yy + 1.772 * uu;              // B
-            }
-        }
-
-        return rgb;
-    }
-
     useEffect(() => {
         if (totalBytes > 0 && totalBytes === lodNumBytes) {
             setCubeLoaded(true)
             renderDataCube()
-
         }
 
     }, [totalBytes]);
@@ -185,26 +158,8 @@ const App = observer(() => {
         }
     }, [localState.axesReleased])
 
-    useEffect(() => { // Called whenever the memory size is changed
-        console.log('gets outside loop')
-        if (localState.renderer !== null) {
-            setLoading(true)
-            let request = captureCameraInfo();
-            client.getNewROILODSize(request, {}).then((response: any) => {
-                setLodNumBytes(response.getTrueSizeLodBytes())  // Set the number of bytes in the LOD model to the new value
-                setDimensionX(response.getDimensionsLodList()[0]) //Set new dimensions
-                setDimensionY(response.getDimensionsLodList()[1])
-                setDimensionZ(response.getDimensionsLodList()[2])
-            }).catch((err: any) => {
-                console.log(err)
-            }).then(() => {
-                loadNewLodModel() // rendering LOD model for now. Will change when hybrid rendering is in place
-            })
-        }
-    }, [localState.lodMemorySize, newModelRequested]);
 
-
-    function concatArrays(arrayToConcat: any) { // a, b TypedArray of same type
+    const concatArrays = (arrayToConcat: any) => { // a, b TypedArray of same type
         let array = arrayToConcat
 
         // Get the total length of all arrays.
@@ -230,6 +185,20 @@ const App = observer(() => {
         }
     }, [])
 
+    const getNewLodModel = () => {
+        setLoading(true)
+        let request = captureCameraInfo();
+        client.getNewROILODSize(request, {}).then((response: any) => {
+            setLodNumBytes(response.getTrueSizeLodBytes())  // Set the number of bytes in the LOD model to the new value
+            setDimensionX(response.getDimensionsLodList()[0]) //Set new dimensions
+            setDimensionY(response.getDimensionsLodList()[1])
+            setDimensionZ(response.getDimensionsLodList()[2])
+        }).catch((err: any) => {
+            console.log(err)
+        }).then(() => {
+            loadNewLodModel() // rendering LOD model for now. Will change when hybrid rendering is in place
+        })
+    }
 
     const decode2DImage = () => { // We have to use webworkers, because h264decoder uses webassembly, and chrome does not allow heavy webassembly tasks on the main thread
 
@@ -320,6 +289,7 @@ const App = observer(() => {
             localState.setRenderWindow(renderWindow)
 
             var rawValues = concatArrays(rawArray)
+            setFullArray(rawValues)
             var values = convertBlock(rawValues);
             var scalars = vtkDataArray.newInstance({
                 values: values,
@@ -551,6 +521,10 @@ const App = observer(() => {
         client.listFiles(request, {}).then((response: any) => setFileNames(response.getFilesList())).catch((err: any) => { console.log(err) });
     }
 
+    const resetCube = () => {
+        setRawArray(fullArray)
+        renderDataCube()
+    }
 
     return (
         <div className="container-fluid" >
@@ -580,15 +554,15 @@ const App = observer(() => {
                     {cubeLoaded &&
                         <div className={"col"}>
                             <LodSizeSlider localState={localState} /> <br />
-                            <button className="btn btn-success " onClick={() => setNewModelRequested(!newModelRequested)}>Request new model</button>
+                            <button className="btn btn-success " onClick={getNewLodModel}>Request new model</button>
                         </div>
                     }
                 </div>
                 <div className={"col col-lg-6"}>
                     {cubeLoaded && <AxisSlider extent={extent} localState={localState} />}
                 </div>
-                <div className={"col col-lg-2"}>
-                    {cubeLoaded && <TransferFunctionSlider localState={localState} />}
+                <div className={"col col-lg-2 d-flex my-auto"}>
+                    {cubeLoaded && <button className="btn btn-success " onClick={resetCube}>Reset cropping area</button>}
                 </div>
 
             </div>
