@@ -243,16 +243,15 @@ const App = observer(() => {
                 decodedArray = message.data[0];
                 let width = message.data[1];
                 let height = message.data[2];
-                let depth = 1;
                 rgbArray = YUV2RBG(decodedArray, width, height) // Convert from Yuv to rgb
-                render2DImage(height, width, depth, rgbArray)
+                render2DImage(height, width, rgbArray)
             }
         })
 
         workerInstance.decode(rawArray)
     }
 
-    const render2DImage = (height: number, width: number, depth: number, rgbArray: Uint8Array) => {
+    const render2DImage = (height: number, width: number, rgbArray: Uint8Array) => {
         console.log('Rendering 2d image')
 
         var scalars = vtkDataArray.newInstance({
@@ -265,7 +264,7 @@ const App = observer(() => {
         var imageData = vtkImageData.newInstance();
         imageData.setOrigin(0, 0, 0);
         imageData.setSpacing(1.0, 1.0, 1.0);
-        imageData.setExtent(0, width - 1, 0, height - 1, 0,1);
+        imageData.setExtent(0, width - 1, 0, height - 1, 0, 0);
         imageData.getPointData().setScalars(scalars);
 
         var mapper = vtkImageMapper.newInstance();
@@ -358,7 +357,7 @@ const App = observer(() => {
             view3d.addEventListener('mouseup', debounceLog);
 
             const renderer = vtkRenderer.newInstance({
-                background: [220, 185, 152]
+                background: [255, 255, 255]
             });
 
             localState.setRenderer(renderer)
@@ -416,8 +415,8 @@ const App = observer(() => {
 
         function newOpacityFunction() {
             var fun = vtkPiecewiseFunction.newInstance();
-            fun.addPoint(-0, 0);
-            fun.addPoint(0.16, 1);
+            fun.addPoint(-0.0, 0.0);
+            fun.addPoint(0.16, 1.0);
             return fun;
         }
         createCube();
