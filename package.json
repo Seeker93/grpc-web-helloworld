@@ -27,6 +27,8 @@
     "itk": "^13.1.1",
     "mobx": "^5.15.6",
     "mobx-react": "^6.3.0",
+    "patch-package": "^6.2.2",
+    "postinstall-postinstall": "^2.1.0",
     "react": "^16.13.1",
     "react-dom": "^16.13.1",
     "react-scripts": "3.4.1",

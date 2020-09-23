@@ -264,8 +264,8 @@ const App = observer(() => {
 
         var imageData = vtkImageData.newInstance();
         imageData.setOrigin(0, 0, 0);
-        imageData.setSpacing(1.0, (width / height).toFixed(2), (width / depth).toFixed(2));
-        imageData.setExtent(0, width - 1, 0, height - 1, 0, depth - 1);
+        imageData.setSpacing(1.0, 1.0, 1.0);
+        imageData.setExtent(0, width - 1, 0, height - 1, 0,1);
         imageData.getPointData().setScalars(scalars);
 
         var mapper = vtkImageMapper.newInstance();
@@ -284,6 +284,7 @@ const App = observer(() => {
 
         localState.setSliceRenderer(sliceRenderer)
         localState.sliceRenderer.addVolume(actor);
+        localState.sliceRenderer.resetCameraNoOffset()
         localState.renderWindow.addRenderer(localState.sliceRenderer) // Overlay slice on top of volume after user stops interacting
         localState.renderWindow.render();
 
@@ -392,7 +393,6 @@ const App = observer(() => {
             widget.setVolumeMapper(mapper);
             widget.setHandleSize(10); // in pixels
             widget.setEnabled(true);
-
             widget.setCornerHandlesEnabled(true);
             widget.setEdgeHandlesEnabled(true);
             localState.setWidgetState(widget)
