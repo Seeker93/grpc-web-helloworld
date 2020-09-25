@@ -1,0 +1,1183 @@
+diff --git a/node_modules/vtk.js/Examples/Rendering/Convolution2DPass/controller.html b/node_modules/vtk.js/Examples/Rendering/Convolution2DPass/controller.html
+new file mode 100644
+index 0000000..4190948
+--- /dev/null
++++ b/node_modules/vtk.js/Examples/Rendering/Convolution2DPass/controller.html
+@@ -0,0 +1,32 @@
++<table>
++  <tr>
++    <td><b>Apply</b></td><td><b>Convolution Pass</b></td><td><b>Strength</b></td>
++  </tr>
++  <tr>
++    <td><input type="checkbox" class="gaussPass" name="gaussPass"></td>
++    <td><label for="gaussPass">Gaussian Blur Pass</label></td>
++  </tr>
++  <tr>
++    <td><input type="radio" class="edge1Pass" name="edgePass"></td>
++    <td><label for="edge1Pass">Edge Enhancement Pass v1</label></td>
++    <td><input class='edge1PassValue' type="range" min="0" max="10.0" step="0.1" value="3" /></td>
++  </tr>
++  <tr>
++    <td><input type="radio" class="edge2Pass" name="edgePass"></td>
++    <td><label for="edge2Pass">Edge Enhancement Pass v2</label></td>
++    <td><input class='edge2PassValue' type="range" min="0" max="10.0" step="0.1" value="3" /></td>
++  </tr>
++  <tr>
++    <td><input type="radio" class="edge3Pass" name="edgePass"></td>
++    <td><label for="edge3Pass">Edge Enhancement Pass v3</label></td>
++    <td><input class='edge3PassValue' type="range" min="0" max="10.0" step="0.1" value="3" /></td>
++  </tr>
++  <tr>
++    <td><input type="radio" class="edgeDetect" name="edgePass"></td>
++    <td><label for="edgeDetect">Edge Detection Pass</label></td>
++  </tr>
++  <tr>
++    <td><input type="radio" class="unsharpMask" name="edgePass"></td>
++    <td><label for="unsharpMask">Unsharp Mask Pass</label></td>
++  </tr>
++</table>
+diff --git a/node_modules/vtk.js/Examples/Rendering/Convolution2DPass/index.js b/node_modules/vtk.js/Examples/Rendering/Convolution2DPass/index.js
+new file mode 100644
+index 0000000..fb16d01
+--- /dev/null
++++ b/node_modules/vtk.js/Examples/Rendering/Convolution2DPass/index.js
+@@ -0,0 +1,204 @@
++import 'vtk.js/Sources/favicon';
++
++import vtkFullScreenRenderWindow from 'vtk.js/Sources/Rendering/Misc/FullScreenRenderWindow';
++import vtkHttpDataSetReader from 'vtk.js/Sources/IO/Core/HttpDataSetReader';
++import vtkPiecewiseFunction from 'vtk.js/Sources/Common/DataModel/PiecewiseFunction';
++import vtkColorTransferFunction from 'vtk.js/Sources/Rendering/Core/ColorTransferFunction';
++import vtkVolume from 'vtk.js/Sources/Rendering/Core/Volume';
++import vtkForwardPass from 'vtk.js/Sources/Rendering/OpenGL/ForwardPass';
++import vtkVolumeMapper from 'vtk.js/Sources/Rendering/Core/VolumeMapper';
++import vtkConvolution2DPass from 'vtk.js/Sources/Rendering/OpenGL/Convolution2DPass';
++import controlPanel from './controller.html';
++
++// ----------------------------------------------------------------------------
++// Standard rendering code setup
++// ----------------------------------------------------------------------------
++
++const fullScreenRenderer = vtkFullScreenRenderWindow.newInstance({
++  background: [0, 0, 0],
++});
++const renderer = fullScreenRenderer.getRenderer();
++const renderWindow = fullScreenRenderer.getRenderWindow();
++
++const view = renderWindow.getViews()[0];
++
++fullScreenRenderer.addController(controlPanel);
++
++// ----------------------------------------------------------------------------
++// Example code
++// ----------------------------------------------------------------------------
++
++// ----------------------------------------------------------------------------
++// Utility functions for generating convolution passes
++// ----------------------------------------------------------------------------
++
++function getConvolutionPass(kernel, kernelDimension, delegates = null) {
++  const convolutionPass = vtkConvolution2DPass.newInstance();
++  if (delegates !== null) {
++    convolutionPass.setDelegates(delegates);
++  }
++  convolutionPass.setKernelDimension(kernelDimension);
++  convolutionPass.setKernel(kernel);
++  return convolutionPass;
++}
++
++function getEdgeEnhancement1Pass(k, delegates = null) {
++  return getConvolutionPass(
++    [0, -k, 0, -k, 1 + 4 * k, -k, 0, -k, 0],
++    3,
++    delegates
++  );
++}
++
++function getEdgeEnhancement2Pass(k, delegates = null) {
++  return getConvolutionPass(
++    [-k, -k, -k, -k, 1 + 8 * k, -k, -k, -k, -k],
++    3,
++    delegates
++  );
++}
++
++function getEdgeEnhancement3Pass(k, delegates = null) {
++  return getConvolutionPass(
++    [-k, -2 * k, -k, -2 * k, 1 + 12 * k, -2 * k, -k, -2 * k, -k],
++    3,
++    delegates
++  );
++}
++
++function getGaussianBlurPass(delegates = null) {
++  return getConvolutionPass([1, 2, 1, 2, 4, 2, 1, 2, 1], 3, delegates);
++}
++
++function getEdgeDetectPass(delegates = null) {
++  return getConvolutionPass([-1, -1, -1, -1, 8, -1, -1, -1, -1], 3, delegates);
++}
++
++function getUnsharpMaskPass(delegates = null) {
++  // prettier-ignore
++  return getConvolutionPass(
++    [
++      -1, -4, -6, -4, -1,
++      -4, -16, -24, -16, -4,
++      -6, -24, 512 - 36, -24, -6,
++      -4, -16, -24, -16, -4,
++      -1, -4, -6, -4, -1
++    ],
++    5,
++    delegates
++  );
++}
++
++const reader = vtkHttpDataSetReader.newInstance({ fetchGzip: true });
++
++const actor = vtkVolume.newInstance();
++const mapper = vtkVolumeMapper.newInstance();
++mapper.setSampleDistance(0.7);
++actor.setMapper(mapper);
++
++// create color and opacity transfer functions
++const ctfun = vtkColorTransferFunction.newInstance();
++ctfun.addRGBPoint(200.0, 0.4, 0.2, 0.0);
++ctfun.addRGBPoint(2000.0, 1.0, 1.0, 1.0);
++const ofun = vtkPiecewiseFunction.newInstance();
++ofun.addPoint(200.0, 0.0);
++ofun.addPoint(1200.0, 0.5);
++ofun.addPoint(3000.0, 0.8);
++actor.getProperty().setRGBTransferFunction(0, ctfun);
++actor.getProperty().setScalarOpacity(0, ofun);
++actor.getProperty().setScalarOpacityUnitDistance(0, 4.5);
++actor.getProperty().setInterpolationTypeToLinear();
++actor.getProperty().setUseGradientOpacity(0, true);
++actor.getProperty().setGradientOpacityMinimumValue(0, 15);
++actor.getProperty().setGradientOpacityMinimumOpacity(0, 0.0);
++actor.getProperty().setGradientOpacityMaximumValue(0, 100);
++actor.getProperty().setGradientOpacityMaximumOpacity(0, 1.0);
++actor.getProperty().setShade(true);
++actor.getProperty().setAmbient(0.2);
++actor.getProperty().setDiffuse(0.7);
++actor.getProperty().setSpecular(0.3);
++actor.getProperty().setSpecularPower(8.0);
++
++mapper.setInputConnection(reader.getOutputPort());
++
++// ----------------------------------------------------------------------------
++// Update render-pipeline with chain of enabled render passes
++// ----------------------------------------------------------------------------
++function updatePostProcessing(event) {
++  let renderPass = vtkForwardPass.newInstance();
++  if (document.querySelector('.gaussPass').checked) {
++    renderPass = getGaussianBlurPass([renderPass]);
++  }
++  if (document.querySelector('.edge1Pass').checked) {
++    const k = document.querySelector('.edge1PassValue').value;
++    renderPass = getEdgeEnhancement1Pass(k, [renderPass]);
++  }
++  if (document.querySelector('.edge2Pass').checked) {
++    const k = document.querySelector('.edge2PassValue').value;
++    renderPass = getEdgeEnhancement2Pass(k, [renderPass]);
++  }
++  if (document.querySelector('.edge3Pass').checked) {
++    const k = document.querySelector('.edge3PassValue').value;
++    renderPass = getEdgeEnhancement3Pass(k, [renderPass]);
++  }
++  if (document.querySelector('.edgeDetect').checked) {
++    renderPass = getEdgeDetectPass([renderPass]);
++  }
++  if (document.querySelector('.unsharpMask').checked) {
++    renderPass = getUnsharpMaskPass([renderPass]);
++  }
++
++  view.setRenderPasses([renderPass]);
++  renderWindow.render();
++}
++
++reader.setUrl(`${__BASE_PATH__}/data/volume/headsq.vti`).then(() => {
++  reader.loadData().then(() => {
++    renderer.addVolume(actor);
++    const interactor = renderWindow.getInteractor();
++    interactor.setDesiredUpdateRate(15.0);
++    renderer.resetCamera();
++    renderer.getActiveCamera().elevation(80);
++    renderWindow.render();
++
++    document
++      .querySelector('.gaussPass')
++      .addEventListener('change', updatePostProcessing);
++    document
++      .querySelector('.edgeDetect')
++      .addEventListener('change', updatePostProcessing);
++    document
++      .querySelector('.edge1PassValue')
++      .addEventListener('input', updatePostProcessing);
++    document
++      .querySelector('.edge1Pass')
++      .addEventListener('change', updatePostProcessing);
++    document
++      .querySelector('.edge2PassValue')
++      .addEventListener('input', updatePostProcessing);
++    document
++      .querySelector('.edge2Pass')
++      .addEventListener('change', updatePostProcessing);
++    document
++      .querySelector('.edge3PassValue')
++      .addEventListener('input', updatePostProcessing);
++    document
++      .querySelector('.edge3Pass')
++      .addEventListener('change', updatePostProcessing);
++    document
++      .querySelector('.unsharpMask')
++      .addEventListener('change', updatePostProcessing);
++  });
++});
++
++// -----------------------------------------------------------
++// Make some variables global so that you can inspect and
++// modify objects in your browser's developer console:
++// -----------------------------------------------------------
++
++global.source = reader;
++global.mapper = mapper;
++global.actor = actor;
++global.ofun = ofun;
++global.renderer = renderer;
++global.renderWindow = renderWindow;
+diff --git a/node_modules/vtk.js/Sources/Filters/Core/Cutter/index.js b/node_modules/vtk.js/Sources/Filters/Core/Cutter/index.js
+index 7d7fd98..3e66486 100644
+--- a/node_modules/vtk.js/Sources/Filters/Core/Cutter/index.js
++++ b/node_modules/vtk.js/Sources/Filters/Core/Cutter/index.js
+@@ -3,6 +3,45 @@ import vtkPolyData from 'vtk.js/Sources/Common/DataModel/PolyData';
+ 
+ const { vtkErrorMacro, TYPED_ARRAYS } = macro;
+ 
++function initPolyIterator(pd) {
++  const polys = pd.getPolys().getData();
++  const strips = pd.getStrips().getData();
++  const it = {
++    done: false,
++    polyIdx: 0,
++    stripIdx: 0,
++    remainingStripLength: 0,
++    // returns a single poly cell
++    next() {
++      let ret = null;
++      if (it.polyIdx < polys.length) {
++        const cellSize = polys[it.polyIdx];
++        const start = it.polyIdx + 1;
++        const end = start + cellSize;
++        it.polyIdx = end;
++        ret = polys.subarray(start, end);
++      } else if (it.stripIdx < strips.length) {
++        if (it.remainingStripLength === 0) {
++          it.remainingStripLength = strips[it.stripIdx] - 2; // sliding window of 3 points
++          // stripIdx points to the last point in a triangle 3-tuple
++          it.stripIdx += 3;
++        }
++        const start = it.stripIdx - 2;
++        const end = it.stripIdx + 1;
++        it.stripIdx++;
++        it.remainingStripLength--;
++        ret = strips.subarray(start, end);
++      } else if (it.done) {
++        throw new Error('Iterator is done');
++      }
++
++      it.done = it.polyIdx >= polys.length && it.stripIdx >= strips.length;
++      return ret;
++    },
++  };
++  return it;
++}
++
+ // ----------------------------------------------------------------------------
+ // vtkCutter methods
+ // ----------------------------------------------------------------------------
+@@ -25,7 +64,6 @@ function vtkCutter(publicAPI, model) {
+   };
+ 
+   function dataSetCutter(input, output) {
+-    const numCells = input.getNumberOfCells();
+     const points = input.getPoints();
+     const pointsData = points.getData();
+     const numPts = points.getNumberOfPoints();
+@@ -48,32 +86,27 @@ function vtkCutter(publicAPI, model) {
+       );
+     }
+ 
+-    const dataCell = input.getPolys().getData();
+     const crossedEdges = [];
+     const x1 = new Array(3);
+     const x2 = new Array(3);
+     // Loop over all cells; get scalar values for all cell points
+     // and process each cell.
+     /* eslint-disable no-continue */
+-    let cellOffset = 0;
+-    let prevCellSize = -1;
+-    for (let cellId = 0; cellId < numCells; cellId++) {
+-      cellOffset += prevCellSize + 1; // account for length of cell
+-
+-      const nbPointsInCell = dataCell[cellOffset];
+-      prevCellSize = nbPointsInCell;
++    const it = initPolyIterator(input);
++    while (!it.done) {
++      // cell contains the point IDs/indices
++      const cell = it.next();
+ 
+       // Check that cells have at least 3 points
+-      if (nbPointsInCell <= 2) {
++      if (cell.length <= 2) {
+         continue;
+       }
+-      const nextCellOffset = cellOffset + 1 + nbPointsInCell;
+ 
+       // Get associated scalar of points that constitute the current cell
+       const cellPointsScalars = [];
+       let pointIndex;
+-      for (let i = cellOffset + 1; i < nextCellOffset; i++) {
+-        pointIndex = dataCell[i];
++      for (let i = 0; i < cell.length; i++) {
++        pointIndex = cell[i];
+         cellPointsScalars.push(model.cutScalars[pointIndex]);
+       }
+ 
+@@ -94,16 +127,10 @@ function vtkCutter(publicAPI, model) {
+         continue;
+       }
+ 
+-      // Get id of points that constitute the current cell
+-      const cellPointsID = [];
+-      for (let i = cellOffset + 1; i < nextCellOffset; i++) {
+-        cellPointsID.push(dataCell[i]);
+-      }
+-
+       // Find and compute edges which intersect cells
+       const intersectedEdgesList = [];
+-      for (let i = 0; i < cellPointsID.length; i++) {
+-        const idNext = i + 1 === cellPointsID.length ? 0 : i + 1;
++      for (let i = 0; i < cell.length; i++) {
++        const idNext = i + 1 === cell.length ? 0 : i + 1;
+ 
+         // Go to next edge if edge is not crossed
+         // TODO: in most come cases, (numberOfPointsInCell - 1) or 0 edges of the cell
+@@ -132,8 +159,8 @@ function vtkCutter(publicAPI, model) {
+         }
+ 
+         // points position
+-        const pointID1 = cellPointsID[e1];
+-        const pointID2 = cellPointsID[e2];
++        const pointID1 = cell[e1];
++        const pointID2 = cell[e2];
+         x1[0] = pointsData[pointID1 * 3];
+         x1[1] = pointsData[pointID1 * 3 + 1];
+         x1[2] = pointsData[pointID1 * 3 + 2];
+diff --git a/node_modules/vtk.js/Sources/IO/Core/DataAccessHelper/HttpDataAccessHelper.js b/node_modules/vtk.js/Sources/IO/Core/DataAccessHelper/HttpDataAccessHelper.js
+index 86de3fe..bef1734 100644
+--- a/node_modules/vtk.js/Sources/IO/Core/DataAccessHelper/HttpDataAccessHelper.js
++++ b/node_modules/vtk.js/Sources/IO/Core/DataAccessHelper/HttpDataAccessHelper.js
+@@ -10,9 +10,26 @@ const { vtkErrorMacro, vtkDebugMacro } = macro;
+ 
+ let requestCount = 0;
+ 
++function openAsyncXHR(method, url, options = {}) {
++  const xhr = new XMLHttpRequest();
++  xhr.open(method, url, true);
++
++  if (options.headers) {
++    Object.entries(options.headers).forEach(([key, value]) =>
++      xhr.setRequestHeader(key, value)
++    );
++  }
++
++  if (options.progressCallback) {
++    xhr.addEventListener('progress', options.progressCallback);
++  }
++
++  return xhr;
++}
++
+ function fetchBinary(url, options = {}) {
+   return new Promise((resolve, reject) => {
+-    const xhr = new XMLHttpRequest();
++    const xhr = openAsyncXHR('GET', url, options);
+ 
+     xhr.onreadystatechange = (e) => {
+       if (xhr.readyState === 4) {
+@@ -24,12 +41,7 @@ function fetchBinary(url, options = {}) {
+       }
+     };
+ 
+-    if (options && options.progressCallback) {
+-      xhr.addEventListener('progress', options.progressCallback);
+-    }
+-
+     // Make request
+-    xhr.open('GET', url, true);
+     xhr.responseType = 'arraybuffer';
+     xhr.send();
+   });
+@@ -38,12 +50,12 @@ function fetchBinary(url, options = {}) {
+ function fetchArray(instance = {}, baseURL, array, options = {}) {
+   if (array.ref && !array.ref.pending) {
+     return new Promise((resolve, reject) => {
+-      const xhr = new XMLHttpRequest();
+       const url = [
+         baseURL,
+         array.ref.basepath,
+         options.compression ? `${array.ref.id}.gz` : array.ref.id,
+       ].join('/');
++      const xhr = openAsyncXHR('GET', url, options);
+ 
+       xhr.onreadystatechange = (e) => {
+         if (xhr.readyState === 1) {
+@@ -105,12 +117,7 @@ function fetchArray(instance = {}, baseURL, array, options = {}) {
+         }
+       };
+ 
+-      if (options && options.progressCallback) {
+-        xhr.addEventListener('progress', options.progressCallback);
+-      }
+-
+       // Make request
+-      xhr.open('GET', url, true);
+       xhr.responseType =
+         options.compression || array.dataType !== 'string'
+           ? 'arraybuffer'
+@@ -126,7 +133,7 @@ function fetchArray(instance = {}, baseURL, array, options = {}) {
+ 
+ function fetchJSON(instance = {}, url, options = {}) {
+   return new Promise((resolve, reject) => {
+-    const xhr = new XMLHttpRequest();
++    const xhr = openAsyncXHR('GET', url, options);
+ 
+     xhr.onreadystatechange = (e) => {
+       if (xhr.readyState === 1) {
+@@ -154,12 +161,7 @@ function fetchJSON(instance = {}, url, options = {}) {
+       }
+     };
+ 
+-    if (options && options.progressCallback) {
+-      xhr.addEventListener('progress', options.progressCallback);
+-    }
+-
+     // Make request
+-    xhr.open('GET', url, true);
+     xhr.responseType = options.compression ? 'arraybuffer' : 'text';
+     xhr.send();
+   });
+@@ -174,7 +176,7 @@ function fetchText(instance = {}, url, options = {}) {
+   }
+ 
+   return new Promise((resolve, reject) => {
+-    const xhr = new XMLHttpRequest();
++    const xhr = openAsyncXHR('GET', url, options);
+ 
+     xhr.onreadystatechange = (e) => {
+       if (xhr.readyState === 1) {
+@@ -200,12 +202,7 @@ function fetchText(instance = {}, url, options = {}) {
+       }
+     };
+ 
+-    if (options.progressCallback) {
+-      xhr.addEventListener('progress', options.progressCallback);
+-    }
+-
+     // Make request
+-    xhr.open('GET', url, true);
+     xhr.responseType = options.compression ? 'arraybuffer' : 'text';
+     xhr.send();
+   });
+diff --git a/node_modules/vtk.js/Sources/IO/Geometry/STLReader/index.js b/node_modules/vtk.js/Sources/IO/Geometry/STLReader/index.js
+index 263210a..0634eae 100644
+--- a/node_modules/vtk.js/Sources/IO/Geometry/STLReader/index.js
++++ b/node_modules/vtk.js/Sources/IO/Geometry/STLReader/index.js
+@@ -155,19 +155,26 @@ function vtkSTLReader(publicAPI, model) {
+ 
+     model.parseData = content;
+ 
+-    // Binary parsing
+-    // Header
+-    const headerData = content.slice(0, 80);
+-    const headerStr = BinaryHelper.arrayBufferToString(headerData);
+-    const header = parseHeader(headerStr);
++    // ascii/binary detection
++    let isBinary = false;
++    // 80=STL header, 4=uint32 of num of triangles (le)
++    const dview = new DataView(content, 0, 80 + 4);
++    const numTriangles = dview.getUint32(80, true);
++    // 50 bytes per triangle
++    isBinary = 84 + numTriangles * 50 === content.byteLength;
+ 
+     // Check if ascii format
+-    const solidIndex = headerStr.indexOf('solid ');
+-    if (solidIndex !== -1 && solidIndex < 10) {
++    if (!isBinary) {
+       publicAPI.parseAsText(BinaryHelper.arrayBufferToString(content));
+       return;
+     }
+ 
++    // Binary parsing
++    // Header
++    const headerData = content.slice(0, 80);
++    const headerStr = BinaryHelper.arrayBufferToString(headerData);
++    const header = parseHeader(headerStr);
++
+     // Data
+     const dataView = new DataView(content, 84);
+     global.dataview = dataView;
+diff --git a/node_modules/vtk.js/Sources/IO/Geometry/STLWriter/Constants.js b/node_modules/vtk.js/Sources/IO/Geometry/STLWriter/Constants.js
+new file mode 100644
+index 0000000..0363d72
+--- /dev/null
++++ b/node_modules/vtk.js/Sources/IO/Geometry/STLWriter/Constants.js
+@@ -0,0 +1,8 @@
++export const FormatTypes = {
++  ASCII: 'ascii',
++  BINARY: 'binary',
++};
++
++export default {
++  FormatTypes,
++};
+diff --git a/node_modules/vtk.js/Sources/IO/Geometry/STLWriter/example/index.js b/node_modules/vtk.js/Sources/IO/Geometry/STLWriter/example/index.js
+new file mode 100644
+index 0000000..005d3ce
+--- /dev/null
++++ b/node_modules/vtk.js/Sources/IO/Geometry/STLWriter/example/index.js
+@@ -0,0 +1,65 @@
++import 'vtk.js/Sources/favicon';
++
++import vtkFullScreenRenderWindow from 'vtk.js/Sources/Rendering/Misc/FullScreenRenderWindow';
++import vtkActor from 'vtk.js/Sources/Rendering/Core/Actor';
++import vtkMapper from 'vtk.js/Sources/Rendering/Core/Mapper';
++
++import vtkSTLWriter from 'vtk.js/Sources/IO/Geometry/STLWriter';
++import vtkSTLReader from 'vtk.js/Sources/IO/Geometry/STLReader';
++import vtkPolyDataReader from 'vtk.js/Sources/IO/Legacy/PolyDataReader';
++// ----------------------------------------------------------------------------
++// Standard rendering code setup
++// ----------------------------------------------------------------------------
++
++const fullScreenRenderer = vtkFullScreenRenderWindow.newInstance();
++const renderer = fullScreenRenderer.getRenderer();
++const renderWindow = fullScreenRenderer.getRenderWindow();
++
++const reader = vtkPolyDataReader.newInstance();
++const writerReader = vtkSTLReader.newInstance();
++
++const writer = vtkSTLWriter.newInstance();
++
++reader
++  .setUrl(`${__BASE_PATH__}/data/legacy/sphere.vtk`, { loadData: true })
++  .then(() => {
++    writer.setInputData(reader.getOutputData());
++    const fileContents = writer.getOutputData();
++    // Can also use a static function to write to STL:
++    // const fileContents = vtkSTLWriter.writeSTL(reader.getOutputData());
++
++    // Display the resulting STL
++    writerReader.parseAsArrayBuffer(fileContents.buffer);
++    renderer.resetCamera();
++    renderWindow.render();
++
++    // Add a download link for it
++    const blob = new Blob([fileContents], { type: 'application/octet-steam' });
++    const a = window.document.createElement('a');
++    a.href = window.URL.createObjectURL(blob, {
++      type: 'application/octet-steam',
++    });
++    a.download = 'sphere.stl';
++    a.text = 'Download';
++    a.style.position = 'absolute';
++    a.style.left = '50%';
++    a.style.bottom = '10px';
++    document.body.appendChild(a);
++    a.style.background = 'white';
++    a.style.padding = '5px';
++  });
++
++const actor = vtkActor.newInstance();
++const mapper = vtkMapper.newInstance();
++actor.setMapper(mapper);
++
++mapper.setInputConnection(writerReader.getOutputPort());
++
++renderer.addActor(actor);
++
++global.writer = writer;
++global.writerReader = writerReader;
++global.mapper = mapper;
++global.actor = actor;
++global.renderer = renderer;
++global.renderWindow = renderWindow;
+diff --git a/node_modules/vtk.js/Sources/IO/Geometry/STLWriter/index.js b/node_modules/vtk.js/Sources/IO/Geometry/STLWriter/index.js
+new file mode 100644
+index 0000000..2806376
+--- /dev/null
++++ b/node_modules/vtk.js/Sources/IO/Geometry/STLWriter/index.js
+@@ -0,0 +1,213 @@
++// @author: Thomas Beznik <thomas.beznik@relu.eu>, with the help of Julien Finet <julien.finet@kitware.com> (https://github.com/Kitware/vtk-js/issues/1442)
++// and inspired from Paul Kaplan (https://gist.github.com/paulkaplan/6d5f0ab2c7e8fdc68a61).
++
++import { vec3 } from 'gl-matrix';
++import macro from 'vtk.js/Sources/macro';
++import vtkTriangle from 'vtk.js/Sources/Common/DataModel/Triangle';
++import { FormatTypes } from 'vtk.js/Sources/IO/Geometry/STLWriter/Constants';
++
++const { vtkErrorMacro } = macro;
++
++// ----------------------------------------------------------------------------
++// Global methods
++// ----------------------------------------------------------------------------
++
++function writeFloatBinary(dataView, offset, float) {
++  dataView.setFloat32(offset, float.toPrecision(6), true);
++  return offset + 4;
++}
++
++function writeVectorBinary(dataView, offset, vector) {
++  let off = writeFloatBinary(dataView, offset, vector[0]);
++  off = writeFloatBinary(dataView, off, vector[1]);
++  return writeFloatBinary(dataView, off, vector[2]);
++}
++
++// ----------------------------------------------------------------------------
++// vtkSTLWriter methods
++// ----------------------------------------------------------------------------
++
++const binaryWriter = () => {
++  let offset = 0;
++  let dataView = null;
++  return {
++    init: (polyData) => {
++      const polys = polyData.getPolys().getData();
++      const buffer = new ArrayBuffer(80 + 4 + (50 * polys.length) / 4); // buffer for the full file; size = header (80) + num cells (4) +  50 bytes per poly
++      dataView = new DataView(buffer);
++    },
++    writeHeader: (polyData) => {
++      offset += 80; // Header is empty // TODO: could add date, version, package
++
++      // First need to write the number of cells
++      dataView.setUint32(offset, polyData.getNumberOfCells(), true);
++      offset += 4;
++    },
++    writeTriangle: (v1, v2, v3, dn) => {
++      offset = writeVectorBinary(dataView, offset, dn);
++      offset = writeVectorBinary(dataView, offset, v1);
++      offset = writeVectorBinary(dataView, offset, v2);
++      offset = writeVectorBinary(dataView, offset, v3);
++      offset += 2; // unused 'attribute byte count' is a Uint16
++    },
++    writeFooter: (polyData) => {},
++    getOutputData: () => {
++      return dataView;
++    },
++  };
++};
++
++const asciiWriter = () => {
++  let file = '';
++  return {
++    init: (polyData) => {},
++    writeHeader: (polyData) => {
++      file += 'solid ascii\n';
++    },
++    writeTriangle: (v1, v2, v3, dn) => {
++      file += ` facet normal ${dn[0].toPrecision(6)} ${dn[1].toPrecision(
++        6
++      )} ${dn[2].toPrecision(6)}\n`;
++      file += '  outer loop\n';
++      file += `   vertex ${v1[0].toPrecision(6)} ${v1[1].toPrecision(
++        6
++      )} ${v1[2].toPrecision(6)}\n`;
++      file += `   vertex ${v2[0].toPrecision(6)} ${v2[1].toPrecision(
++        6
++      )} ${v2[2].toPrecision(6)}\n`;
++      file += `   vertex ${v3[0].toPrecision(6)} ${v3[1].toPrecision(
++        6
++      )} ${v3[2].toPrecision(6)}\n`;
++      file += '  endloop\n';
++      file += ' endfacet\n';
++    },
++    writeFooter: (polyData) => {
++      file += 'endsolid\n';
++    },
++    getOutputData: () => {
++      return file;
++    },
++  };
++};
++
++function writeSTL(polyData, format = FormatTypes.BINARY, transform = null) {
++  let writer = null;
++  if (format === FormatTypes.BINARY) {
++    writer = binaryWriter();
++  } else if (format === FormatTypes.ASCII) {
++    writer = asciiWriter();
++  } else {
++    vtkErrorMacro('Invalid format type');
++  }
++
++  writer.init(polyData);
++  writer.writeHeader(polyData);
++
++  const polys = polyData.getPolys().getData();
++  const points = polyData.getPoints().getData();
++  const strips = polyData.getStrips() ? polyData.getStrips().getData() : null;
++
++  const n = [];
++  let v1 = [];
++  let v2 = [];
++  let v3 = [];
++
++  // Strips
++  if (strips && strips.length > 0) {
++    throw new Error('Unsupported strips');
++  }
++
++  // Polys
++  for (let i = 0; i < polys.length; ) {
++    const pointNumber = polys[i++];
++
++    if (pointNumber) {
++      v1 = [
++        points[polys[i] * 3],
++        points[polys[i] * 3 + 1],
++        points[polys[i++] * 3 + 2],
++      ];
++      v2 = [
++        points[polys[i] * 3],
++        points[polys[i] * 3 + 1],
++        points[polys[i++] * 3 + 2],
++      ];
++      v3 = [
++        points[polys[i] * 3],
++        points[polys[i] * 3 + 1],
++        points[polys[i++] * 3 + 2],
++      ];
++      if (transform) {
++        vec3.transformMat4(v1, v1, transform);
++        vec3.transformMat4(v2, v2, transform);
++        vec3.transformMat4(v3, v3, transform);
++      }
++
++      vtkTriangle.computeNormal(v1, v2, v3, n);
++
++      writer.writeTriangle(v1, v2, v3, n);
++    }
++  }
++  writer.writeFooter(polyData);
++  return writer.getOutputData();
++}
++
++// ----------------------------------------------------------------------------
++// Static API
++// ----------------------------------------------------------------------------
++
++export const STATIC = {
++  writeSTL,
++};
++
++// ----------------------------------------------------------------------------
++// vtkSTLWriter methods
++// ----------------------------------------------------------------------------
++
++function vtkSTLWriter(publicAPI, model) {
++  // Set our className
++  model.classHierarchy.push('vtkSTLWriter');
++
++  publicAPI.requestData = (inData, outData) => {
++    const input = inData[0];
++    if (!input || input.getClassName() !== 'vtkPolyData') {
++      vtkErrorMacro('Invalid or missing input');
++      return;
++    }
++    outData[0] = writeSTL(input, model.format, model.transform);
++  };
++}
++
++// ----------------------------------------------------------------------------
++// Object factory
++// ----------------------------------------------------------------------------
++
++const DEFAULT_VALUES = {
++  format: FormatTypes.BINARY,
++  transform: null,
++};
++
++// ----------------------------------------------------------------------------
++
++export function extend(publicAPI, model, initialValues = {}) {
++  Object.assign(model, DEFAULT_VALUES, initialValues);
++
++  // Make this a VTK object
++  macro.obj(publicAPI, model);
++
++  // Also make it an algorithm with one input and one output
++  macro.algo(publicAPI, model, 1, 1);
++
++  macro.setGet(publicAPI, model, ['format', 'transform']);
++
++  // Object specific methods
++  vtkSTLWriter(publicAPI, model);
++}
++
++// ----------------------------------------------------------------------------
++
++export const newInstance = macro.newInstance(extend, 'vtkSTLWriter');
++
++// ----------------------------------------------------------------------------
++
++export default { newInstance, extend, ...STATIC };
+diff --git a/node_modules/vtk.js/Sources/IO/Geometry/index.js b/node_modules/vtk.js/Sources/IO/Geometry/index.js
+index b2e270d..4c188da 100644
+--- a/node_modules/vtk.js/Sources/IO/Geometry/index.js
++++ b/node_modules/vtk.js/Sources/IO/Geometry/index.js
+@@ -1,7 +1,9 @@
+ import vtkSTLReader from './STLReader';
+ import vtkDracoReader from './DracoReader';
++import vtkSTLWriter from './STLWriter';
+ 
+ export default {
+   vtkSTLReader,
+   vtkDracoReader,
++  vtkSTLWriter,
+ };
+diff --git a/node_modules/vtk.js/Sources/IO/XML/XMLReader/index.js b/node_modules/vtk.js/Sources/IO/XML/XMLReader/index.js
+index 8dcf423..9d856eb 100644
+--- a/node_modules/vtk.js/Sources/IO/XML/XMLReader/index.js
++++ b/node_modules/vtk.js/Sources/IO/XML/XMLReader/index.js
+@@ -183,7 +183,14 @@ function processDataArray(
+     // read header
+     // NOTE: this will incorrectly read the size if headerType is (U)Int64 and
+     // the value requires (U)Int64.
+-    const header = new TYPED_ARRAY[headerType](binaryBuffer, offset, 1);
++    let header;
++    if (offset % TYPED_ARRAY_BYTES[headerType] === 0) {
++      header = new TYPED_ARRAY[headerType](binaryBuffer, offset, 1);
++    } else {
++      header = new TYPED_ARRAY[headerType](
++        binaryBuffer.slice(offset, offset + TYPED_ARRAY_BYTES[headerType])
++      );
++    }
+     let arraySize = header[0] / TYPED_ARRAY_BYTES[dataType];
+ 
+     // if we are dealing with Uint64, we need to get double the values since
+diff --git a/node_modules/vtk.js/Sources/Imaging/Core/ImageReslice/index.js b/node_modules/vtk.js/Sources/Imaging/Core/ImageReslice/index.js
+index 54c3f6e..b0fe3b8 100644
+--- a/node_modules/vtk.js/Sources/Imaging/Core/ImageReslice/index.js
++++ b/node_modules/vtk.js/Sources/Imaging/Core/ImageReslice/index.js
+@@ -17,7 +17,7 @@ import {
+ } from 'vtk.js/Sources/Imaging/Core/AbstractImageInterpolator/InterpolationInfo';
+ import SlabMode from './Constants';
+ 
+-const { capitalize, vtkErrorMacro, vtkDebugMacro } = macro;
++const { TYPED_ARRAYS, capitalize, vtkErrorMacro, vtkDebugMacro } = macro;
+ 
+ // ----------------------------------------------------------------------------
+ // vtkImageReslice methods
+@@ -164,7 +164,7 @@ function vtkImageReslice(publicAPI, model) {
+       .getScalars()
+       .getNumberOfComponents(); // or s.numberOfComponents;
+ 
+-    const outScalarsData = new window[dataType](
++    const outScalarsData = new TYPED_ARRAYS[dataType](
+       outDims[0] * outDims[1] * outDims[2] * numComponents
+     );
+     const outScalars = vtkDataArray.newInstance({
+@@ -319,7 +319,7 @@ function vtkImageReslice(publicAPI, model) {
+       );
+     }
+ 
+-    const background = window[inputScalarType].from(model.backgroundColor);
++    const background = new TYPED_ARRAYS[inputScalarType](model.backgroundColor);
+ 
+     // set color for area outside of input volume extent
+     // void *background;
+diff --git a/node_modules/vtk.js/Sources/Interaction/Manipulators/GestureCameraManipulator/index.js b/node_modules/vtk.js/Sources/Interaction/Manipulators/GestureCameraManipulator/index.js
+index d23d105..625ada9 100644
+--- a/node_modules/vtk.js/Sources/Interaction/Manipulators/GestureCameraManipulator/index.js
++++ b/node_modules/vtk.js/Sources/Interaction/Manipulators/GestureCameraManipulator/index.js
+@@ -45,11 +45,12 @@ function vtkGestureCameraManipulator(publicAPI, model) {
+ 
+   publicAPI.onPan = (interactor, renderer, translation) => {
+     const camera = renderer.getActiveCamera();
++    const style = interactor.getInteractorStyle();
+ 
+     // Calculate the focal depth since we'll be using it a lot
+     let viewFocus = camera.getFocalPoint();
+ 
+-    viewFocus = model.interactorStyle.computeWorldToDisplay(
++    viewFocus = style.computeWorldToDisplay(
+       renderer,
+       viewFocus[0],
+       viewFocus[1],
+@@ -59,7 +60,7 @@ function vtkGestureCameraManipulator(publicAPI, model) {
+ 
+     const trans = translation;
+     const lastTrans = model.previousTranslation;
+-    const newPickPoint = model.interactorStyle.computeDisplayToWorld(
++    const newPickPoint = style.computeDisplayToWorld(
+       renderer,
+       viewFocus[0] + trans[0] - lastTrans[0],
+       viewFocus[1] + trans[1] - lastTrans[1],
+@@ -68,7 +69,7 @@ function vtkGestureCameraManipulator(publicAPI, model) {
+ 
+     // Has to recalc old mouse point since the viewport has moved,
+     // so can't move it outside the loop
+-    const oldPickPoint = model.interactorStyle.computeDisplayToWorld(
++    const oldPickPoint = style.computeDisplayToWorld(
+       renderer,
+       viewFocus[0],
+       viewFocus[1],
+diff --git a/node_modules/vtk.js/Sources/Interaction/Manipulators/MouseCameraTrackballZoomManipulator/index.js b/node_modules/vtk.js/Sources/Interaction/Manipulators/MouseCameraTrackballZoomManipulator/index.js
+index 50282fd..441fc4b 100644
+--- a/node_modules/vtk.js/Sources/Interaction/Manipulators/MouseCameraTrackballZoomManipulator/index.js
++++ b/node_modules/vtk.js/Sources/Interaction/Manipulators/MouseCameraTrackballZoomManipulator/index.js
+@@ -15,11 +15,12 @@ function vtkMouseCameraTrackballZoomManipulator(publicAPI, model) {
+     const size = interactor.getView().getSize();
+ 
+     const camera = renderer.getActiveCamera();
++    const direction = model.flipDirection ? -1 : 1;
+     if (camera.getParallelProjection()) {
+-      model.zoomScale = 1.5 / size[1];
++      model.zoomScale = (1.5 / size[1]) * direction;
+     } else {
+       const range = camera.getClippingRange();
+-      model.zoomScale = 1.5 * (range[1] / size[1]);
++      model.zoomScale = 1.5 * (range[1] / size[1]) * direction;
+     }
+   };
+ 
+@@ -95,6 +96,7 @@ function vtkMouseCameraTrackballZoomManipulator(publicAPI, model) {
+ 
+ const DEFAULT_VALUES = {
+   zoomScale: 0.0,
++  flipDirection: false,
+ };
+ 
+ // ----------------------------------------------------------------------------
+@@ -107,6 +109,8 @@ export function extend(publicAPI, model, initialValues = {}) {
+   vtkCompositeMouseManipulator.extend(publicAPI, model, initialValues);
+   vtkCompositeCameraManipulator.extend(publicAPI, model, initialValues);
+ 
++  macro.setGet(publicAPI, model, ['flipDirection']);
++
+   // Object specific methods
+   vtkMouseCameraTrackballZoomManipulator(publicAPI, model);
+ }
+diff --git a/node_modules/vtk.js/Sources/Rendering/Core/InteractorStyle/index.js b/node_modules/vtk.js/Sources/Rendering/Core/InteractorStyle/index.js
+index a3d3622..d865a47 100644
+--- a/node_modules/vtk.js/Sources/Rendering/Core/InteractorStyle/index.js
++++ b/node_modules/vtk.js/Sources/Rendering/Core/InteractorStyle/index.js
+@@ -70,7 +70,10 @@ function vtkInteractorStyle(publicAPI, model) {
+       case 'W':
+         ac = callData.pokedRenderer.getActors();
+         ac.forEach((anActor) => {
+-          anActor.getProperty().setRepresentationToWireframe();
++          const prop = anActor.getProperty();
++          if (prop.setRepresentationToWireframe) {
++            prop.setRepresentationToWireframe();
++          }
+         });
+         rwi.render();
+         break;
+@@ -79,7 +82,10 @@ function vtkInteractorStyle(publicAPI, model) {
+       case 'S':
+         ac = callData.pokedRenderer.getActors();
+         ac.forEach((anActor) => {
+-          anActor.getProperty().setRepresentationToSurface();
++          const prop = anActor.getProperty();
++          if (prop.setRepresentationToSurface) {
++            prop.setRepresentationToSurface();
++          }
+         });
+         rwi.render();
+         break;
+@@ -88,7 +94,10 @@ function vtkInteractorStyle(publicAPI, model) {
+       case 'V':
+         ac = callData.pokedRenderer.getActors();
+         ac.forEach((anActor) => {
+-          anActor.getProperty().setRepresentationToPoints();
++          const prop = anActor.getProperty();
++          if (prop.setRepresentationToPoints) {
++            prop.setRepresentationToPoints();
++          }
+         });
+         rwi.render();
+         break;
+diff --git a/node_modules/vtk.js/Sources/Rendering/Core/RenderWindowInteractor/index.js b/node_modules/vtk.js/Sources/Rendering/Core/RenderWindowInteractor/index.js
+index 4fce382..ee19491 100644
+--- a/node_modules/vtk.js/Sources/Rendering/Core/RenderWindowInteractor/index.js
++++ b/node_modules/vtk.js/Sources/Rendering/Core/RenderWindowInteractor/index.js
+@@ -78,6 +78,9 @@ function vtkRenderWindowInteractor(publicAPI, model) {
+   // Initialize list of requesters
+   const animationRequesters = new Set();
+ 
++  // track active event listeners to handle simultaneous button tracking
++  let activeListenerCount = 0;
++
+   // Public API methods
+ 
+   //----------------------------------------------------------------------
+@@ -188,21 +191,34 @@ function vtkRenderWindowInteractor(publicAPI, model) {
+     return keys;
+   }
+ 
+-  function interactionRegistration(addListeners) {
++  function interactionRegistration(addListeners, force = false) {
+     const rootElm = document.querySelector('body');
+     const method = addListeners ? 'addEventListener' : 'removeEventListener';
+     const invMethod = addListeners ? 'removeEventListener' : 'addEventListener';
+ 
+-    if (model.container) {
+-      model.container[invMethod]('mousemove', publicAPI.handleMouseMove);
++    if (!force && !addListeners && activeListenerCount > 0) {
++      --activeListenerCount;
++    }
++
++    // only add/remove listeners when there are no registered listeners
++    if (!activeListenerCount || force) {
++      activeListenerCount = 0;
++
++      if (model.container) {
++        model.container[invMethod]('mousemove', publicAPI.handleMouseMove);
++      }
++
++      rootElm[method]('mouseup', publicAPI.handleMouseUp);
++      rootElm[method]('mouseleave', publicAPI.handleMouseUp);
++      rootElm[method]('mousemove', publicAPI.handleMouseMove);
++      rootElm[method]('touchend', publicAPI.handleTouchEnd, false);
++      rootElm[method]('touchcancel', publicAPI.handleTouchEnd, false);
++      rootElm[method]('touchmove', publicAPI.handleTouchMove, false);
+     }
+ 
+-    rootElm[method]('mouseup', publicAPI.handleMouseUp);
+-    rootElm[method]('mouseleave', publicAPI.handleMouseUp);
+-    rootElm[method]('mousemove', publicAPI.handleMouseMove);
+-    rootElm[method]('touchend', publicAPI.handleTouchEnd, false);
+-    rootElm[method]('touchcancel', publicAPI.handleTouchEnd, false);
+-    rootElm[method]('touchmove', publicAPI.handleTouchMove, false);
++    if (!force && addListeners) {
++      ++activeListenerCount;
++    }
+   }
+ 
+   publicAPI.bindEvents = (container) => {
+@@ -232,7 +248,8 @@ function vtkRenderWindowInteractor(publicAPI, model) {
+   };
+ 
+   publicAPI.unbindEvents = () => {
+-    interactionRegistration(false);
++    // force unbinding listeners
++    interactionRegistration(false, true);
+     model.container.removeEventListener('contextmenu', preventDefault);
+     // model.container.removeEventListener('click', preventDefault); // Avoid stopping event propagation
+     model.container.removeEventListener('wheel', publicAPI.handleWheel);
+diff --git a/node_modules/vtk.js/Sources/Rendering/Core/Renderer/index.js b/node_modules/vtk.js/Sources/Rendering/Core/Renderer/index.js
+index cb7384b..30020f5 100644
+--- a/node_modules/vtk.js/Sources/Rendering/Core/Renderer/index.js
++++ b/node_modules/vtk.js/Sources/Rendering/Core/Renderer/index.js
+@@ -458,6 +458,99 @@ function vtkRenderer(publicAPI, model) {
+     return true;
+   };
+ 
++  publicAPI.resetCameraNoOffset = (bounds = null) => {
++    const boundsToUse = bounds || publicAPI.computeVisiblePropBounds();
++    const center = [0, 0, 0];
++
++    if (!vtkMath.areBoundsInitialized(boundsToUse)) {
++      vtkDebugMacro('Cannot reset camera!');
++      return false;
++    }
++
++    let vn = null;
++
++    if (publicAPI.getActiveCamera()) {
++      vn = model.activeCamera.getViewPlaneNormal();
++    } else {
++      vtkErrorMacro('Trying to reset non-existent camera');
++      return false;
++    }
++
++    // Reset the perspective zoom factors, otherwise subsequent zooms will cause
++    // the view angle to become very small and cause bad depth sorting.
++    model.activeCamera.setViewAngle(30.0);
++
++    center[0] = (boundsToUse[0] + boundsToUse[1]) / 2.0;
++    center[1] = (boundsToUse[2] + boundsToUse[3]) / 2.0;
++    center[2] = (boundsToUse[4] + boundsToUse[5]) / 2.0;
++
++    let w1 = boundsToUse[1] - boundsToUse[0];
++    let w2 = boundsToUse[3] - boundsToUse[2];
++    let w3 = boundsToUse[5] - boundsToUse[4];
++    w1 *= w1;
++    w2 *= w2;
++    w3 *= w3;
++    let radius = w1 + w2 + w3;
++
++    // If we have just a single point, pick a radius of 1.0
++    radius = radius === 0 ? 1.0 : radius;
++
++    // compute the radius of the enclosing sphere
++    radius = Math.sqrt(radius) * 0.125;
++
++    // default so that the bounding sphere fits within the view fustrum
++
++    // compute the distance from the intersection of the view frustum with the
++    // bounding sphere. Basically in 2D draw a circle representing the bounding
++    // sphere in 2D then draw a horizontal line going out from the center of
++    // the circle. That is the camera view. Then draw a line from the camera
++    // position to the point where it intersects the circle. (it will be tangent
++    // to the circle at this point, this is important, only go to the tangent
++    // point, do not draw all the way to the view plane). Then draw the radius
++    // from the tangent point to the center of the circle. You will note that
++    // this forms a right triangle with one side being the radius, another being
++    // the target distance for the camera, then just find the target dist using
++    // a sin.
++    const angle = vtkMath.radiansFromDegrees(model.activeCamera.getViewAngle());
++    const parallelScale = radius;
++    const distance = radius / Math.sin(angle * 0.5);
++
++    // check view-up vector against view plane normal
++    const vup = model.activeCamera.getViewUp();
++    if (Math.abs(vtkMath.dot(vup, vn)) > 0.999) {
++      vtkWarningMacro('Resetting view-up since view plane normal is parallel');
++      model.activeCamera.setViewUp(-vup[2], vup[0], vup[1]);
++    }
++
++    // update the camera
++    model.activeCamera.setFocalPoint(center[0], center[1], center[2]);
++    model.activeCamera.setPosition(
++      center[0] + distance * vn[0],
++      center[1] + distance * vn[1],
++      center[2] + distance * vn[2]
++    );
++
++    publicAPI.resetCameraClippingRange(boundsToUse);
++
++    // setup default parallel scale
++    model.activeCamera.setParallelScale(parallelScale);
++
++    // update reasonable world to physical values
++    model.activeCamera.setPhysicalScale(radius);
++    model.activeCamera.setPhysicalTranslation(
++      -center[0],
++      -center[1],
++      -center[2]
++    );
++
++    // Here to let parallel/distributed compositing intercept
++    // and do the right thing.
++    publicAPI.invokeEvent(RESET_CAMERA_EVENT);
++
++    return true;
++  };
++
++
+   publicAPI.resetCameraClippingRange = (bounds = null) => {
+     const boundsToUse = bounds || publicAPI.computeVisiblePropBounds();
+ 

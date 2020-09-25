@@ -5,7 +5,7 @@ import { observer } from 'mobx-react'
 import './AxisSlider.css';
 
 export const AxisSlider = observer((props: any) => {
-    const { extent, localState } = props
+    const { localState } = props
 
     const [nxValue, setnxValue] = useState(localState.planeState[0])
     const [xValue, setxValue] = useState(localState.planeState[1])
@@ -28,22 +28,22 @@ export const AxisSlider = observer((props: any) => {
 
     const onWidgetChanged = (planes: number[]) => {
         localState.cropFilter.setCroppingPlanes(planes)
-        if (planes[0] > extent[0] && planes[0] < extent[1]) {
+        if (planes[0] > localState.extent[0] && planes[0] < localState.extent[1]) {
             setnxValue(localState.widget.getCroppingPlanes()[0])
         }
-        if (planes[1] > extent[0] && planes[1] < extent[1]) {
+        if (planes[1] > localState.extent[0] && planes[1] < localState.extent[1]) {
             setxValue(localState.widget.getCroppingPlanes()[1])
         }
-        if (planes[2] > extent[2] && planes[2] < extent[3]) {
+        if (planes[2] > localState.extent[2] && planes[2] < localState.extent[3]) {
             setnyValue(localState.widget.getCroppingPlanes()[2])
         }
-        if (planes[3] > extent[2] && planes[3] < extent[3]) {
+        if (planes[3] > localState.extent[2] && planes[3] < localState.extent[3]) {
             setyValue(localState.widget.getCroppingPlanes()[3])
         }
-        if (planes[4] > extent[4] && planes[4] < extent[5]) {
+        if (planes[4] > localState.extent[4] && planes[4] < localState.extent[5]) {
             setnzValue(localState.widget.getCroppingPlanes()[4])
         }
-        if (planes[5] > extent[4] && planes[5] < extent[5]) {
+        if (planes[5] > localState.extent[4] && planes[5] < localState.extent[5]) {
             setzValue(localState.widget.getCroppingPlanes()[5])
         }
 
@@ -67,12 +67,12 @@ export const AxisSlider = observer((props: any) => {
                 <h6 className="label text-white">I:</h6>
                 <div className={"col-sm-5 text-white flex-start mr-4"}>
                     <Slider
-                        min={extent[0]}
-                        max={extent[1]}
+                        min={localState.extent[0]}
+                        max={localState.extent[1]}
                         stepSize={0.1}
                         value={nxValue}
                         labelPrecision={0}
-                        labelStepSize={extent[1]}
+                        labelStepSize={localState.extent[1]}
                         onRelease={onSliderRelease}
                         onChange={(value: number) => onCoordChange(value, 0)}
                         vertical={false}
@@ -81,12 +81,12 @@ export const AxisSlider = observer((props: any) => {
                 <div className={"col-sm-5 text-white flex-end"}>
 
                     <Slider
-                        min={extent[0]}
-                        max={extent[1]}
+                        min={localState.extent[0]}
+                        max={localState.extent[1]}
                         stepSize={0.1}
                         value={xValue}
                         labelPrecision={0}
-                        labelStepSize={extent[1]}
+                        labelStepSize={localState.extent[1]}
                         className={"col-xs-6 text-white"}
                         onRelease={onSliderRelease}
                         onChange={(value: number) => onCoordChange(value, 1)}
@@ -100,10 +100,10 @@ export const AxisSlider = observer((props: any) => {
                 <div className={"col-sm-5 text-white flex-start mr-4"}>
 
                     <Slider
-                        min={extent[2]}
-                        max={extent[3]}
+                        min={localState.extent[2]}
+                        max={localState.extent[3]}
                         labelPrecision={0}
-                        labelStepSize={extent[3]}
+                        labelStepSize={localState.extent[3]}
                         stepSize={0.1}
                         value={nyValue}
                         onRelease={onSliderRelease}
@@ -114,10 +114,10 @@ export const AxisSlider = observer((props: any) => {
                 <div className={"col-sm-5 text-white flex-end"}>
 
                     <Slider
-                        min={extent[2]}
-                        max={extent[3]}
+                        min={localState.extent[2]}
+                        max={localState.extent[3]}
                         labelPrecision={0}
-                        labelStepSize={extent[3]}
+                        labelStepSize={localState.extent[3]}
                         stepSize={0.1}
                         value={yValue}
                         onRelease={onSliderRelease}
@@ -131,12 +131,12 @@ export const AxisSlider = observer((props: any) => {
                 <div className={"col-sm-5 text-white flex-start mr-4"}>
 
                     <Slider
-                        min={extent[4]}
-                        max={extent[5]}
+                        min={localState.extent[4]}
+                        max={localState.extent[5]}
                         stepSize={0.1}
                         value={nzValue}
                         labelPrecision={0}
-                        labelStepSize={extent[5]}
+                        labelStepSize={localState.extent[5]}
                         onRelease={onSliderRelease}
                         onChange={(value: number) => onCoordChange(value, 4)}
                         vertical={false}
@@ -145,12 +145,12 @@ export const AxisSlider = observer((props: any) => {
                 <div className={"col-sm-5 text-white flex-end"}>
 
                     <Slider
-                        min={extent[4]}
-                        max={extent[5]}
+                        min={localState.extent[4]}
+                        max={localState.extent[5]}
                         stepSize={0.1}
                         value={zValue}
                         labelPrecision={0}
-                        labelStepSize={extent[5]}
+                        labelStepSize={localState.extent[5]}
                         onRelease={onSliderRelease}
                         onChange={(value: number) => onCoordChange(value, 5)}
                         vertical={false}

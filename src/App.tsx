@@ -51,6 +51,7 @@ const App = observer(() => {
         sliceRenderer: null,
         interactor: null,
         cubeReset: false,
+        extent: null,
         setPlaneState(plane: any) {
             localState.planeState = plane
         },
@@ -101,6 +102,9 @@ const App = observer(() => {
         },
         flipCubeReset() {
             localState.cubeReset = !localState.cubeReset
+        },
+        setExtent(extent:any){
+            localState.extent = extent;
         }
     }))
 
@@ -119,7 +123,6 @@ const App = observer(() => {
     const [lodNumBytes, setLodNumBytes] = useState(0);
     const [hqNumBytes, setHqNumBytes] = useState(0);
     const [cubeLoaded, setCubeLoaded] = useState(false)
-    const [extent, setExtent] = useState(null)
     const [firstStream, setFirstStream] = useState(true)
     const renderWindowLodRef = useRef(null);
 
@@ -316,12 +319,12 @@ const App = observer(() => {
 
             var imageData = vtkImageData.newInstance();
             imageData.setOrigin(0, 0, 0);
-            imageData.setSpacing(1.0, 1.0, (width / depth).toFixed(2));
+            imageData.setSpacing(1.0, 1.0, 1.0);
             localState.setPlaneState([0, width - 1, 0, height - 1, 0, depth - 1])
             imageData.setExtent(localState.planeState);
             imageData.getPointData().setScalars(scalars);
 
-            setExtent(imageData.getExtent());
+            localState.setExtent(imageData.getExtent());
 
             const cropFilter = vtkImageCropFilter.newInstance();
             var mapper = vtkVolumeMapper.newInstance();
@@ -555,7 +558,7 @@ const App = observer(() => {
                     }
                 </div>
                 <div className={"d-flex my-auto col col-lg-7"}>
-                    {cubeLoaded && <AxisSlider extent={extent} localState={localState} />}
+                    {cubeLoaded && <AxisSlider localState={localState} />}
                 </div>
                 <div className={"d-flex my-auto col col-lg-2 d-flex"}>
                     <div>
