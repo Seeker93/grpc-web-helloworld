@@ -99,7 +99,7 @@ const App = observer(() => {
         setInteractor(interactor: any) {
             localState.interactor = interactor;
         },
-        flipCubeReset(){
+        flipCubeReset() {
             localState.cubeReset = !localState.cubeReset
         }
     }))
@@ -256,7 +256,7 @@ const App = observer(() => {
         });
 
         localState.setSliceRenderer(sliceRenderer)
-        localState.sliceRenderer.addVolume(actor);
+        localState.sliceRenderer.addActor(actor);
         localState.sliceRenderer.resetCameraNoOffset();
         localState.renderWindow.addRenderer(localState.sliceRenderer) // Overlay slice on top of volume after user stops interacting
         localState.renderWindow.render();
@@ -543,11 +543,11 @@ const App = observer(() => {
                     <button className="col btn btn-success " onClick={renderFile}>Render</button>
                 </div>
             </div>
-            <div className={'loading-div'}>
-                {loading &&
+            {loading &&
+                <div className={'loading-div'}>
                     <img src={logo} className="App-logo" alt="logo" />
-                }
-            </div>
+                </div>
+            }
             <div className={classNames('rendering-window', 'row')} id="view3d" ref={renderWindowLodRef}>
                 {/* Rendering happens in this div */}
 
@@ -563,7 +563,7 @@ const App = observer(() => {
                         </div>
                     }
                 </div>
-                <div className={"d-flex my-auto col col-lg-6"}>
+                <div className={"d-flex my-auto col col-lg-7"}>
                     {cubeLoaded && <AxisSlider extent={extent} localState={localState} />}
                 </div>
                 <div className={"d-flex my-auto col col-lg-2 d-flex"}>
