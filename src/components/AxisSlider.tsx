@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Slider } from "@blueprintjs/core";
 import { observer } from 'mobx-react'
 import './AxisSlider.css';
@@ -15,6 +15,15 @@ export const AxisSlider = observer((props: any) => {
     const [zValue, setzValue] = useState(localState.planeState[5])
 
     localState.widget.onCroppingPlanesChanged((planes: any) => { onWidgetChanged(planes) })
+
+    useEffect(() => {
+        setnxValue(localState.planeState[0])
+        setxValue(localState.planeState[1])
+        setnyValue(localState.planeState[2])
+        setyValue(localState.planeState[3])
+        setnzValue(localState.planeState[4])
+        setzValue(localState.planeState[5])
+    }, [localState.cubeReset]);
 
 
     const onWidgetChanged = (planes: number[]) => {
@@ -52,20 +61,8 @@ export const AxisSlider = observer((props: any) => {
         localState.flipAxesReleased()
     }
 
-    const onClickReset = () => {
-        localState.widget.setCroppingPlanes(...extent)
-        setnxValue(extent[0])
-        setxValue(extent[1])
-        setnyValue(extent[2])
-        setyValue(extent[3])
-        setnzValue(extent[4])
-        setzValue(extent[5])
-    }
-
-
     return (
-        <div className={"slider pt-4"}>
-            <h5 className="text-light">Adjust Axes</h5>
+        <div className={"slider"}>
             <div className="row">
                 <h6 className="label text-white">I:</h6>
                 <div className={"col-sm-5 text-white flex-start mr-4"}>
@@ -160,8 +157,6 @@ export const AxisSlider = observer((props: any) => {
                     />
                 </div>
             </div>
-            <button className={"btn btn-outline-secondary btn-sm d-flex justify-content-center mt-3"} onClick={onClickReset}>Reset to default</button>
-
         </div>
     );
 

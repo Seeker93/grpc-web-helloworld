@@ -50,6 +50,7 @@ const App = observer(() => {
         mapper: null,
         sliceRenderer: null,
         interactor: null,
+        cubeReset: false,
         setPlaneState(plane: any) {
             localState.planeState = plane
         },
@@ -96,8 +97,11 @@ const App = observer(() => {
             localState.mapper = mapper;
         },
         setInteractor(interactor: any) {
-            interactor = interactor;
+            localState.interactor = interactor;
         },
+        flipCubeReset(){
+            localState.cubeReset = !localState.cubeReset
+        }
     }))
 
 
@@ -134,6 +138,7 @@ const App = observer(() => {
     useEffect(() => {
         if (totalBytes > 0 && totalBytes === lodNumBytes) {
             setCubeLoaded(true)
+            setFullArray(rawArray)
             renderDataCube()
         }
 
@@ -252,7 +257,7 @@ const App = observer(() => {
 
         localState.setSliceRenderer(sliceRenderer)
         localState.sliceRenderer.addVolume(actor);
-        localState.sliceRenderer.resetCameraNoOffset()
+        localState.sliceRenderer.resetCameraNoOffset();
         localState.renderWindow.addRenderer(localState.sliceRenderer) // Overlay slice on top of volume after user stops interacting
         localState.renderWindow.render();
 
@@ -289,7 +294,6 @@ const App = observer(() => {
             localState.setRenderWindow(renderWindow)
 
             var rawValues = concatArrays(rawArray)
-            setFullArray(rawValues)
             var values = convertBlock(rawValues);
             var scalars = vtkDataArray.newInstance({
                 values: values,
@@ -300,9 +304,8 @@ const App = observer(() => {
 
             var imageData = vtkImageData.newInstance();
             imageData.setOrigin(0, 0, 0);
-            imageData.setSpacing(1.0, (width / height).toFixed(2), (width / depth).toFixed(2));
+            imageData.setSpacing(1.0, 1.0, (width / depth).toFixed(2));
             localState.setPlaneState([0, width - 1, 0, height - 1, 0, depth - 1])
-
             imageData.setExtent(localState.planeState);
             imageData.getPointData().setScalars(scalars);
 
@@ -334,6 +337,7 @@ const App = observer(() => {
 
             localState.renderer.addVolume(localState.volumeActor);
             localState.renderer.getActiveCamera().elevation(30);
+
             localState.renderer.getActiveCamera().azimuth(45);
             localState.renderer.resetCamera();
             localState.renderWindow.render();
@@ -356,15 +360,15 @@ const App = observer(() => {
             localState.setCropFilter(cropFilter)
 
             const widget = vtkImageCroppingRegionsWidget.newInstance();
-
-            widget.setInteractor(interactor);
-
-            widget.setVolumeMapper(mapper);
-            widget.setHandleSize(10); // in pixels
-            widget.setEnabled(true);
-            widget.setCornerHandlesEnabled(true);
-            widget.setEdgeHandlesEnabled(true);
             localState.setWidgetState(widget)
+            localState.widget.setCroppingPlanes([])
+            localState.widget.setInteractor(interactor);
+
+            localState.widget.setVolumeMapper(mapper);
+            localState.widget.setHandleSize(10); // in pixels
+            localState.widget.setEnabled(true);
+            localState.widget.setCornerHandlesEnabled(true);
+            localState.widget.setEdgeHandlesEnabled(true);
         }
 
         function initProps(property) {
@@ -502,7 +506,7 @@ const App = observer(() => {
     }
 
 
-    const debounceLog = useCallback(() => {
+    const debounceLog = useCallback(debounce(() => {
         let request = captureCameraInfo()
 
         client.getHQRenderSize(request, {}).then((response: any) => {
@@ -511,7 +515,7 @@ const App = observer(() => {
             console.log('gets here')
             getHqModel()
         })
-    }, [])
+    }, 250), [])
 
 
 
@@ -523,6 +527,7 @@ const App = observer(() => {
 
     const resetCube = () => {
         setRawArray(fullArray)
+        localState.flipCubeReset();
         renderDataCube()
     }
 
@@ -548,21 +553,23 @@ const App = observer(() => {
 
             </div>
 
-            <div className="fixed-bottom bg-dark h-25 justify-content-center row">
+            <div className="fixed-bottom bg-dark h-25 justify-content-center row" >
 
-                <div className={"col col-lg-2"}>
+                <div className={"d-flex my-auto col col-lg-2"}>
                     {cubeLoaded &&
-                        <div className={"col"}>
-                            <LodSizeSlider localState={localState} /> <br />
-                            <button className="btn btn-success " onClick={getNewLodModel}>Request new model</button>
+                        <div className={""}>
+                            <LodSizeSlider localState={localState} />
+                            <button className="btn btn-success mt-2" onClick={getNewLodModel}>Request new model</button>
                         </div>
                     }
                 </div>
-                <div className={"col col-lg-6"}>
+                <div className={"d-flex my-auto col col-lg-6"}>
                     {cubeLoaded && <AxisSlider extent={extent} localState={localState} />}
                 </div>
-                <div className={"col col-lg-2 d-flex my-auto"}>
-                    {cubeLoaded && <button className="btn btn-success " onClick={resetCube}>Reset cropping area</button>}
+                <div className={"d-flex my-auto col col-lg-2 d-flex"}>
+                    <div>
+                        {cubeLoaded && <button className="btn btn-success " onClick={resetCube}>Reset cropping area</button>}
+                    </div>
                 </div>
 
             </div>
