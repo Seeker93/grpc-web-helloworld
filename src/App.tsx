@@ -120,7 +120,7 @@ const App = observer(() => {
     const [hqNumBytes, setHqNumBytes] = useState(0);
     const [cubeLoaded, setCubeLoaded] = useState(false)
     const [extent, setExtent] = useState(null)
-
+    const [firstStream, setFirstStream] = useState(true)
     const renderWindowLodRef = useRef(null);
 
     const widthRef = useRef(0);
@@ -192,17 +192,28 @@ const App = observer(() => {
 
     const getNewLodModel = () => {
         setLoading(true)
-        let request = captureCameraInfo();
-        client.getNewROILODSize(request, {}).then((response: any) => {
-            setLodNumBytes(response.getTrueSizeLodBytes())  // Set the number of bytes in the LOD model to the new value
+        setTotalBytes(0);
+        setRawArray([])
+        setLoading(true)
+
+        var request = captureCameraInfo();
+        var lodClient = client.getNewROILOD(request, {})
+
+        lodClient.on('data', (response: any, err: any) => {
+            if (firstStream) { // only get the total number of bytes in first stream message
+                setLodNumBytes(response.getTotalLodBytes())  // Set the number of bytes in the LOD model to the new value
+                setFirstStream(false)
+            }
             setDimensionX(response.getDimensionsLodList()[0]) //Set new dimensions
             setDimensionY(response.getDimensionsLodList()[1])
             setDimensionZ(response.getDimensionsLodList()[2])
-        }).catch((err: any) => {
-            console.log(err)
-        }).then(() => {
-            loadNewLodModel() // rendering LOD model for now. Will change when hybrid rendering is in place
-        })
+            setRawArray(rawArray => rawArray.concat(response.getBytes()))
+            setTotalBytes(totalBytes => totalBytes + response.getNumBytes())
+            if (err) {
+                setLoading(false)
+            }
+        }
+        )
     }
 
     const decode2DImage = () => { // We have to use webworkers, because h264decoder uses webassembly, and chrome does not allow heavy webassembly tasks on the main thread
@@ -260,6 +271,7 @@ const App = observer(() => {
         localState.sliceRenderer.resetCameraNoOffset();
         localState.renderWindow.addRenderer(localState.sliceRenderer) // Overlay slice on top of volume after user stops interacting
         localState.renderWindow.render();
+        setFirstStream(true);
 
     }
 
@@ -394,7 +406,9 @@ const App = observer(() => {
             return fun;
         }
         createCube();
-        setLoading(false)
+        setLoading(false);
+        setFirstStream(true);
+
     }
 
     const onFileChosen = (filename: any) => {
@@ -404,61 +418,27 @@ const App = observer(() => {
         }
     }
 
-    const loadNewLodModel = () => {
-        setLoading(true);
-        setTotalBytes(0);
-        setRawArray([])
-        console.log('Receiving LOD model')
-        var renderFileRequest = new GetDataRequest();
-        renderFileRequest.setDataObject(0); // sets the data object to LODModel
-        var renderFileClient = client.getModelData(renderFileRequest, {})
-
-        renderFileClient.on('data', (response: any, err: any) => {
-
-            setRawArray(rawArray => rawArray.concat(response.getBytes()))
-            setTotalBytes(totalBytes => totalBytes + response.getNumBytes())
-            if (err) {
-                setLoading(false)
-            }
-        }
-        )
-    }
-
-    const getHqModel = () => {  // Not fully implemented yet
-        setTotalHqBytes(0)
-        setHqData([])
-        console.log('Receiving HQ model')
-
-        var request = new GetDataRequest()
-        request.setDataObject(1); // sets the data object to HQRender
-
-        var renderClient = client.getModelData(request, {})
-        renderClient.on('data', (response: any, err: any) => {
-            if (response) {
-                setHqData(hqData => hqData.concat(response.getBytes()))
-                setTotalHqBytes(totalHqBytes => totalHqBytes + response.getNumBytes())
-            };
-            if (err) {
-                console.log(err)
-            }
-        })
-    }
-
     const renderFile = async () => {
         setLoading(true)
 
         var request = new FileDetails();
         request.setFileName(filename);
+        var renderFileClient = client.chooseFile(request, {})
         request.setTargetSizeLodBytes(localState.lodMemorySize); //Set the LOD memory size to the size selected
-        await client.chooseFile(request, {}).then((response: any) => {
+        renderFileClient.on('data', (response: any, err: any) => {
+            if (err) {
+                console.log(err)
+            }
+            if (firstStream) {
+                setLodNumBytes(response.getTotalLodBytes())
+                setFirstStream(false)
+            }
             let dimensionsArray = response.getDimensionsLodList()
-            console.log(dimensionsArray)
+            setRawArray(rawArray => rawArray.concat(response.getBytes()))
+            setTotalBytes(totalBytes => totalBytes + response.getNumBytes())
             setDimensionX(dimensionsArray[0])
             setDimensionY(dimensionsArray[1])
             setDimensionZ(dimensionsArray[2])
-            setLodNumBytes(response.getLodNumBytes())
-        }).catch((err: any) => { console.log(err) }).then(() => {
-            loadNewLodModel()
         })
     }
 
@@ -507,13 +487,24 @@ const App = observer(() => {
 
 
     const debounceLog = useCallback(debounce(() => {
-        let request = captureCameraInfo()
+        setTotalHqBytes(0)
+        setHqData([])
+        console.log('Receiving HQ model')
 
-        client.getHQRenderSize(request, {}).then((response: any) => {
-            setHqNumBytes(response.getSizeInBytes())
-        }).catch((err: any) => { console.log(err) }).then(() => {
-            console.log('gets here')
-            getHqModel()
+        var request = captureCameraInfo()
+        var renderClient = client.getHQRender(request, {})
+        renderClient.on('data', (response: any, err: any) => {
+            if (response) {
+                if (firstStream) {
+                    setHqNumBytes(response.getSizeInBytes())
+                    setFirstStream(false)
+                }
+                setHqData(hqData => hqData.concat(response.getBytes()))
+                setTotalHqBytes(totalHqBytes => totalHqBytes + response.getNumBytes())
+            };
+            if (err) {
+                console.log(err)
+            }
         })
     }, 250), [])
 
@@ -543,11 +534,11 @@ const App = observer(() => {
                     <button className="col btn btn-success " onClick={renderFile}>Render</button>
                 </div>
             </div>
-            {loading &&
-                <div className={'loading-div'}>
+            <div className={'loading-div'}>
+                {loading &&
                     <img src={logo} className="App-logo" alt="logo" />
-                </div>
-            }
+                }
+            </div>
             <div className={classNames('rendering-window', 'row')} id="view3d" ref={renderWindowLodRef}>
                 {/* Rendering happens in this div */}
 
