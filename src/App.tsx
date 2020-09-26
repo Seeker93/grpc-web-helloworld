@@ -103,7 +103,7 @@ const App = observer(() => {
         flipCubeReset() {
             localState.cubeReset = !localState.cubeReset
         },
-        setExtent(extent:any){
+        setExtent(extent: any) {
             localState.extent = extent;
         }
     }))
@@ -205,11 +205,13 @@ const App = observer(() => {
         lodClient.on('data', (response: any, err: any) => {
             if (firstStream) { // only get the total number of bytes in first stream message
                 setLodNumBytes(response.getTotalLodBytes())  // Set the number of bytes in the LOD model to the new value
+                setDimensionX(response.getDimensionsLodList()[0]) //Set new dimensions
+                setDimensionY(response.getDimensionsLodList()[1])
+                setDimensionZ(response.getDimensionsLodList()[2])
                 setFirstStream(false)
             }
-            setDimensionX(response.getDimensionsLodList()[0]) //Set new dimensions
-            setDimensionY(response.getDimensionsLodList()[1])
-            setDimensionZ(response.getDimensionsLodList()[2])
+            console.log(response.getDimensionsLodList())
+
             setRawArray(rawArray => rawArray.concat(response.getBytes()))
             setTotalBytes(totalBytes => totalBytes + response.getNumBytes())
             if (err) {
