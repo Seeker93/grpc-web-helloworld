@@ -130,7 +130,7 @@ const App = observer(() => {
     const [hqNumBytes, setHqNumBytes] = useState(0);
     const [cubeLoaded, setCubeLoaded] = useState(false)
     const [firstStream, setFirstStream] = useState(true)
-    const [alignIndicator, setAlignIndicator] = useState(Alignment.LEFT);
+    const [alignIndicator, setAlignIndicator] = useState(Alignment.RIGHT);
     const renderWindowLodRef = useRef(null);
 
     const widthRef = useRef(0);
