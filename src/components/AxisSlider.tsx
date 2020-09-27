@@ -7,44 +7,42 @@ import './AxisSlider.css';
 export const AxisSlider = observer((props: any) => {
     const { localState } = props
 
-    const [nxValue, setnxValue] = useState(localState.planeState[0])
-    const [xValue, setxValue] = useState(localState.planeState[1])
-    const [nyValue, setnyValue] = useState(localState.planeState[2])
-    const [yValue, setyValue] = useState(localState.planeState[3])
-    const [nzValue, setnzValue] = useState(localState.planeState[4])
-    const [zValue, setzValue] = useState(localState.planeState[5])
 
     localState.widget.onCroppingPlanesChanged((planes: any) => { onWidgetChanged(planes) })
 
-    useEffect(() => {
-        setnxValue(localState.planeState[0])
-        setxValue(localState.planeState[1])
-        setnyValue(localState.planeState[2])
-        setyValue(localState.planeState[3])
-        setnzValue(localState.planeState[4])
-        setzValue(localState.planeState[5])
-    }, [localState.cubeReset]);
 
 
     const onWidgetChanged = (planes: number[]) => {
         localState.cropFilter.setCroppingPlanes(planes)
         if (planes[0] > localState.extent[0] && planes[0] < localState.extent[1]) {
-            setnxValue(localState.widget.getCroppingPlanes()[0])
+            let newArray = localState.planeState;
+            newArray[0] = localState.widget.getCroppingPlanes()[0]
+            localState.setPlaneState(newArray)
         }
         if (planes[1] > localState.extent[0] && planes[1] < localState.extent[1]) {
-            setxValue(localState.widget.getCroppingPlanes()[1])
+            let newArray = localState.planeState;
+            newArray[1] = localState.widget.getCroppingPlanes()[1]
+            localState.setPlaneState(newArray)
         }
         if (planes[2] > localState.extent[2] && planes[2] < localState.extent[3]) {
-            setnyValue(localState.widget.getCroppingPlanes()[2])
+            let newArray = localState.planeState;
+            newArray[2] = localState.widget.getCroppingPlanes()[2]
+            localState.setPlaneState(newArray)
         }
         if (planes[3] > localState.extent[2] && planes[3] < localState.extent[3]) {
-            setyValue(localState.widget.getCroppingPlanes()[3])
+            let newArray = localState.planeState;
+            newArray[3] = localState.widget.getCroppingPlanes()[3]
+            localState.setPlaneState(newArray)
         }
         if (planes[4] > localState.extent[4] && planes[4] < localState.extent[5]) {
-            setnzValue(localState.widget.getCroppingPlanes()[4])
+            let newArray = localState.planeState;
+            newArray[4] = localState.widget.getCroppingPlanes()[4]
+            localState.setPlaneState(newArray)
         }
         if (planes[5] > localState.extent[4] && planes[5] < localState.extent[5]) {
-            setzValue(localState.widget.getCroppingPlanes()[5])
+            let newArray = localState.planeState;
+            newArray[5] = localState.widget.getCroppingPlanes()[5]
+            localState.setPlaneState(newArray)
         }
 
     }
@@ -55,9 +53,10 @@ export const AxisSlider = observer((props: any) => {
         newPlaneArray[index] = value
         localState.widget.setCroppingPlanes(...newPlaneArray)
         localState.cropFilter.setCroppingPlanes(newPlaneArray)
+        localState.setPlaneState(newPlaneArray)
     }
 
-    const onSliderRelease = () =>{
+    const onSliderRelease = () => {
         localState.flipAxesReleased()
     }
 
@@ -70,7 +69,7 @@ export const AxisSlider = observer((props: any) => {
                         min={localState.extent[0]}
                         max={localState.extent[1]}
                         stepSize={0.1}
-                        value={nxValue}
+                        value={localState.planeState[0]}
                         labelPrecision={0}
                         labelStepSize={localState.extent[1]}
                         onRelease={onSliderRelease}
@@ -84,7 +83,7 @@ export const AxisSlider = observer((props: any) => {
                         min={localState.extent[0]}
                         max={localState.extent[1]}
                         stepSize={0.1}
-                        value={xValue}
+                        value={localState.planeState[1]}
                         labelPrecision={0}
                         labelStepSize={localState.extent[1]}
                         className={"col-xs-6 text-white"}
@@ -105,7 +104,7 @@ export const AxisSlider = observer((props: any) => {
                         labelPrecision={0}
                         labelStepSize={localState.extent[3]}
                         stepSize={0.1}
-                        value={nyValue}
+                        value={localState.planeState[2]}
                         onRelease={onSliderRelease}
                         onChange={(value: number) => onCoordChange(value, 2)}
                         vertical={false}
@@ -119,7 +118,7 @@ export const AxisSlider = observer((props: any) => {
                         labelPrecision={0}
                         labelStepSize={localState.extent[3]}
                         stepSize={0.1}
-                        value={yValue}
+                        value={localState.planeState[3]}
                         onRelease={onSliderRelease}
                         onChange={(value: number) => onCoordChange(value, 3)}
                         vertical={false}
@@ -134,7 +133,7 @@ export const AxisSlider = observer((props: any) => {
                         min={localState.extent[4]}
                         max={localState.extent[5]}
                         stepSize={0.1}
-                        value={nzValue}
+                        value={localState.planeState[4]}
                         labelPrecision={0}
                         labelStepSize={localState.extent[5]}
                         onRelease={onSliderRelease}
@@ -148,7 +147,7 @@ export const AxisSlider = observer((props: any) => {
                         min={localState.extent[4]}
                         max={localState.extent[5]}
                         stepSize={0.1}
-                        value={zValue}
+                        value={localState.planeState[5]}
                         labelPrecision={0}
                         labelStepSize={localState.extent[5]}
                         onRelease={onSliderRelease}

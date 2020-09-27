@@ -55,6 +55,7 @@ const App = observer(() => {
         cubeReset: false,
         extent: null,
         sampleType: 0,
+        oldLodSize: 0,
         setPlaneState(plane: any) {
             localState.planeState = plane
         },
@@ -109,8 +110,11 @@ const App = observer(() => {
         setExtent(extent: any) {
             localState.extent = extent;
         },
-        setSampleType(type:number){
+        setSampleType(type: number) {
             localState.sampleType = type;
+        },
+        setOldLodSize(size: number) {
+            localState.oldLodSize = size;
         }
     }))
 
@@ -148,7 +152,6 @@ const App = observer(() => {
     useEffect(() => {
         if (totalBytes > 0 && totalBytes === lodNumBytes) {
             setCubeLoaded(true)
-            setFullArray(rawArray)
             renderDataCube()
         }
 
@@ -316,6 +319,8 @@ const App = observer(() => {
             localState.setRenderWindow(renderWindow)
 
             var rawValues = concatArrays(rawArray)
+            setFullArray(rawArray)
+
             var values = convertBlock(rawValues);
             var scalars = vtkDataArray.newInstance({
                 values: values,
@@ -380,10 +385,9 @@ const App = observer(() => {
             interactor.bindEvents(view3d);
             interactor.setInteractorStyle(vtkInteractorStyleTrackballCamera.newInstance());
             localState.setCropFilter(cropFilter)
-
             const widget = vtkImageCroppingRegionsWidget.newInstance();
             localState.setWidgetState(widget)
-            localState.widget.setCroppingPlanes([])
+
             localState.widget.setInteractor(interactor);
 
             localState.widget.setVolumeMapper(mapper);
@@ -436,6 +440,7 @@ const App = observer(() => {
         request.setSMethod(1);
         var renderFileClient = client.chooseFile(request, {})
         request.setTargetSizeLodBytes(localState.lodMemorySize); //Set the LOD memory size to the size selected
+        localState.setOldLodSize(localState.lodMemorySize)
         renderFileClient.on('data', (response: any, err: any) => {
             if (err) {
                 console.log(err)
@@ -468,6 +473,8 @@ const App = observer(() => {
             const croppingPlanes = localState.cropFilter.getCroppingPlanes()
 
             request.setTargetSizeLodBytes(localState.lodMemorySize);
+            localState.setOldLodSize(localState.lodMemorySize)
+
             request.setCroppingPlanesList(croppingPlanes)
             request.setRgbaList(rgba)
             request.setAlpha(alpha)
@@ -477,7 +484,6 @@ const App = observer(() => {
             request.setWindowHeight(heightRef.current)
             request.setViewUpList(viewUpList)
             request.setDistance(distance)
-            request.setTargetSizeLodBytes(localState.lodMemorySize)
             request.setSMethod(localState.sampleType)
 
             console.log("Position: " + positionList)
@@ -532,14 +538,17 @@ const App = observer(() => {
 
     const resetCube = () => {
         setRawArray(fullArray)
-        localState.flipCubeReset();
+        var request = new CameraInfo();
+        request.setTargetSizeLodBytes(localState.oldLodSize)
+        client.reset(request, {})
+
         renderDataCube()
     }
 
     const handleAlignChange = (align: any) => {
-        if(align === Alignment.LEFT){
+        if (align === Alignment.LEFT) {
             localState.setSampleType(0)
-        } else{
+        } else {
             localState.setSampleType(1)
         }
         console.log(align);
