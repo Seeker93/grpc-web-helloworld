@@ -56,8 +56,8 @@ const App = observer(() => {
         cubeReset: false,
         extent: null,
         sampleType: 0,
-        originalArray:null,
-        originalDimensions:null,
+        originalArray: null,
+        originalDimensions: null,
         setPlaneState(plane: any) {
             localState.planeState = plane
         },
@@ -118,10 +118,10 @@ const App = observer(() => {
         setOldLodSize(size: number) {
             localState.oldLodSize = size;
         },
-        setOriginalArray(arr:any){
+        setOriginalArray(arr: any) {
             localState.originalArray = arr;
         },
-        setOriginalDimensions(dims:any){
+        setOriginalDimensions(dims: any) {
             localState.originalDimensions = dims;
         }
     }))
@@ -141,6 +141,7 @@ const App = observer(() => {
     const [hqNumBytes, setHqNumBytes] = useState(0);
     const [cubeLoaded, setCubeLoaded] = useState(false)
     const [firstStream, setFirstStream] = useState(true)
+    const [fullModel, setFullModel] = useState(false)
     const [alignIndicator, setAlignIndicator] = useState(Alignment.RIGHT);
     const renderWindowLodRef = useRef(null);
 
@@ -160,7 +161,7 @@ const App = observer(() => {
         if (totalBytes > 0 && totalBytes === lodNumBytes) {
             setCubeLoaded(true)
             renderDataCube(rawArray, [dimensionX, dimensionY, dimensionZ])
-            
+
         }
 
     }, [totalBytes]);
@@ -212,13 +213,15 @@ const App = observer(() => {
     }, [])
 
     const getNewLodModel = () => {
-        
+        if (JSON.stringify([...localState.extent]) === JSON.stringify([...localState.planeState])) {
+            setFullModel(true)
+        }
         setLoading(true)
-     
+
         setTotalBytes(0);
         setRawArray([])
         setLoading(true)
-   
+
         var request = captureCameraInfo();
         var lodClient = client.getNewROILOD(request, {})
 
@@ -435,10 +438,11 @@ const App = observer(() => {
         setLoading(false);
         setFirstStream(true);
 
-        if (JSON.stringify([...localState.extent]) === JSON.stringify([...localState.planeState])) { // check if the current cube is the full model
-            localState.setOriginalArray(rawArray)
-            localState.setOriginalDimensions([dimensionX, dimensionY, dimensionZ])
-            localState.setOldLodSize(localState.lodMemorySize)
+        if (fullModel) {// check if the current cube is the full model
+            localState.setOriginalArray(rawArray);
+            localState.setOriginalDimensions([dimensionX, dimensionY, dimensionZ]);
+            localState.setOldLodSize(localState.lodMemorySize);
+            setFullModel(false);
         }
     }
 
@@ -454,7 +458,7 @@ const App = observer(() => {
 
         var request = new FileDetails();
         request.setFileName(filename);
-        request.setSMethod(1);
+        request.setSMethod(0); //Default to max
         var renderFileClient = client.chooseFile(request, {})
         request.setTargetSizeLodBytes(localState.lodMemorySize); //Set the LOD memory size to the size selected
         renderFileClient.on('data', (response: any, err: any) => {
@@ -511,7 +515,6 @@ const App = observer(() => {
         console.log("Cropping planes: " + localState.cropFilter.getCroppingPlanes())
         console.log("Sample Type: " + localState.sampleType)
 
-
         return request
 
     }
@@ -558,7 +561,7 @@ const App = observer(() => {
     const handleAlignChange = (align: any) => {
         if (align === Alignment.LEFT) {
             localState.setSampleType(0)
-        } else {
+        } else if (align === Alignment.RIGHT) {
             localState.setSampleType(1)
         }
         console.log(align);
