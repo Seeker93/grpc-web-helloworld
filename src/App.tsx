@@ -122,7 +122,8 @@ const App = observer(() => {
     const [filename, setFileName] = useState('')
     const [filenames, setFileNames] = useState([])
     const [rawArray, setRawArray] = useState([])
-    const [fullArray, setFullArray] = useState(null)
+    const [originalArray, setOriginalArray] = useState(null)
+    const [originalDimensions, setOriginalDimensions] = useState([])
     const [loading, setLoading] = useState(false)
     const [hqData, setHqData] = useState([])
     const [totalBytes, setTotalBytes] = useState(0);
@@ -152,7 +153,7 @@ const App = observer(() => {
     useEffect(() => {
         if (totalBytes > 0 && totalBytes === lodNumBytes) {
             setCubeLoaded(true)
-            renderDataCube()
+            renderDataCube(rawArray, [dimensionX, dimensionY, dimensionZ])
         }
 
     }, [totalBytes]);
@@ -208,7 +209,7 @@ const App = observer(() => {
         setTotalBytes(0);
         setRawArray([])
         setLoading(true)
-
+        
         var request = captureCameraInfo();
         var lodClient = client.getNewROILOD(request, {})
 
@@ -309,18 +310,20 @@ const App = observer(() => {
         }
     }
 
-    const renderDataCube = () => {
+    const renderDataCube = (arrayToRender: any, dimensions: any) => {
         setLoading(true)
         resetRenderItems()
         function createCube() {
-            let width = dimensionX; let height = dimensionY; let depth = dimensionZ;
+            let width = dimensions[0]; let height = dimensions[1]; let depth = dimensions[2];
 
             const renderWindow = vtkRenderWindow.newInstance(); //Now uses RenderWindow instead of Fullscreen render window
             localState.setRenderWindow(renderWindow)
 
-            var rawValues = concatArrays(rawArray)
-            setFullArray(rawArray)
-
+            var rawValues = concatArrays(arrayToRender)
+            if (!cubeLoaded) {
+                setOriginalArray(arrayToRender)
+                setOriginalDimensions(dimensions)
+            }
             var values = convertBlock(rawValues);
             var scalars = vtkDataArray.newInstance({
                 values: values,
@@ -333,7 +336,7 @@ const App = observer(() => {
             imageData.setOrigin(0, 0, 0);
             imageData.setSpacing(1.0, 1.0, 1.0);
             localState.setPlaneState([0, width - 1, 0, height - 1, 0, depth - 1])
-            imageData.setExtent(localState.planeState);
+            imageData.setExtent([0, width - 1, 0, height - 1, 0, depth - 1]);
             imageData.getPointData().setScalars(scalars);
 
             localState.setExtent(imageData.getExtent());
@@ -460,7 +463,6 @@ const App = observer(() => {
 
     const captureCameraInfo = () => {
 
-        if (localState.renderer !== null) {
             const request = new CameraInfo();
             const positionList = localState.renderer.getActiveCamera().getPosition()
             const focalPointList = localState.renderer.getActiveCamera().getFocalPoint()
@@ -470,7 +472,7 @@ const App = observer(() => {
             const distance = localState.renderer.getActiveCamera().getDistance()
             const rgba = [localState.colorTransferFunction.getRedValue(0), localState.colorTransferFunction.getGreenValue(0), localState.colorTransferFunction.getBlueValue(0)]
             const alpha = localState.colorTransferFunction.getAlpha();
-            const croppingPlanes = localState.cropFilter.getCroppingPlanes()
+            const croppingPlanes = localState.planeState;
 
             request.setTargetSizeLodBytes(localState.lodMemorySize);
             localState.setOldLodSize(localState.lodMemorySize)
@@ -499,10 +501,7 @@ const App = observer(() => {
 
 
             return request
-        }
-        else {
-            return null
-        }
+      
     }
 
 
@@ -537,12 +536,12 @@ const App = observer(() => {
     }
 
     const resetCube = () => {
-        setRawArray(fullArray)
         var request = new CameraInfo();
-        request.setTargetSizeLodBytes(localState.oldLodSize)
+        request.setTargetSizeLodBytes(10)
         client.reset(request, {})
-
-        renderDataCube()
+        console.log(originalDimensions)
+        localState.setLodMemorySize(10)
+        renderDataCube(originalArray, originalDimensions)
     }
 
     const handleAlignChange = (align: any) => {
