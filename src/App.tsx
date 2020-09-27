@@ -46,6 +46,7 @@ const App = observer(() => {
         axesChanged: false,
         axesReleased: false,
         lodMemorySize: 10,
+        oldLodSize: 10,
         openGlWindow: null,
         actor: null,
         hqData: [],
@@ -55,7 +56,8 @@ const App = observer(() => {
         cubeReset: false,
         extent: null,
         sampleType: 0,
-        oldLodSize: 0,
+        originalArray:null,
+        originalDimensions:null,
         setPlaneState(plane: any) {
             localState.planeState = plane
         },
@@ -115,6 +117,12 @@ const App = observer(() => {
         },
         setOldLodSize(size: number) {
             localState.oldLodSize = size;
+        },
+        setOriginalArray(arr:any){
+            localState.originalArray = arr;
+        },
+        setOriginalDimensions(dims:any){
+            localState.originalDimensions = dims;
         }
     }))
 
@@ -122,8 +130,6 @@ const App = observer(() => {
     const [filename, setFileName] = useState('')
     const [filenames, setFileNames] = useState([])
     const [rawArray, setRawArray] = useState([])
-    const [originalArray, setOriginalArray] = useState(null)
-    const [originalDimensions, setOriginalDimensions] = useState([])
     const [loading, setLoading] = useState(false)
     const [hqData, setHqData] = useState([])
     const [totalBytes, setTotalBytes] = useState(0);
@@ -154,6 +160,7 @@ const App = observer(() => {
         if (totalBytes > 0 && totalBytes === lodNumBytes) {
             setCubeLoaded(true)
             renderDataCube(rawArray, [dimensionX, dimensionY, dimensionZ])
+            
         }
 
     }, [totalBytes]);
@@ -205,11 +212,13 @@ const App = observer(() => {
     }, [])
 
     const getNewLodModel = () => {
+        
         setLoading(true)
+     
         setTotalBytes(0);
         setRawArray([])
         setLoading(true)
-        
+   
         var request = captureCameraInfo();
         var lodClient = client.getNewROILOD(request, {})
 
@@ -321,8 +330,8 @@ const App = observer(() => {
 
             var rawValues = concatArrays(arrayToRender)
             if (!cubeLoaded) {
-                setOriginalArray(arrayToRender)
-                setOriginalDimensions(dimensions)
+                localState.setOriginalArray(arrayToRender)
+                localState.setOriginalDimensions(dimensions)
             }
             var values = convertBlock(rawValues);
             var scalars = vtkDataArray.newInstance({
@@ -426,6 +435,11 @@ const App = observer(() => {
         setLoading(false);
         setFirstStream(true);
 
+        if (JSON.stringify([...localState.extent]) === JSON.stringify([...localState.planeState])) { // check if the current cube is the full model
+            localState.setOriginalArray(rawArray)
+            localState.setOriginalDimensions([dimensionX, dimensionY, dimensionZ])
+            localState.setOldLodSize(localState.lodMemorySize)
+        }
     }
 
     const onFileChosen = (filename: any) => {
@@ -443,7 +457,6 @@ const App = observer(() => {
         request.setSMethod(1);
         var renderFileClient = client.chooseFile(request, {})
         request.setTargetSizeLodBytes(localState.lodMemorySize); //Set the LOD memory size to the size selected
-        localState.setOldLodSize(localState.lodMemorySize)
         renderFileClient.on('data', (response: any, err: any) => {
             if (err) {
                 console.log(err)
@@ -463,45 +476,44 @@ const App = observer(() => {
 
     const captureCameraInfo = () => {
 
-            const request = new CameraInfo();
-            const positionList = localState.renderer.getActiveCamera().getPosition()
-            const focalPointList = localState.renderer.getActiveCamera().getFocalPoint()
-            widthRef.current = renderWindowLodRef.current.offsetWidth
-            heightRef.current = renderWindowLodRef.current.offsetHeight
-            const viewUpList = localState.renderer.getActiveCamera().getViewUp()
-            const distance = localState.renderer.getActiveCamera().getDistance()
-            const rgba = [localState.colorTransferFunction.getRedValue(0), localState.colorTransferFunction.getGreenValue(0), localState.colorTransferFunction.getBlueValue(0)]
-            const alpha = localState.colorTransferFunction.getAlpha();
-            const croppingPlanes = localState.planeState;
+        const request = new CameraInfo();
+        const positionList = localState.renderer.getActiveCamera().getPosition()
+        const focalPointList = localState.renderer.getActiveCamera().getFocalPoint()
+        widthRef.current = renderWindowLodRef.current.offsetWidth
+        heightRef.current = renderWindowLodRef.current.offsetHeight
+        const viewUpList = localState.renderer.getActiveCamera().getViewUp()
+        const distance = localState.renderer.getActiveCamera().getDistance()
+        const rgba = [localState.colorTransferFunction.getRedValue(0), localState.colorTransferFunction.getGreenValue(0), localState.colorTransferFunction.getBlueValue(0)]
+        const alpha = localState.colorTransferFunction.getAlpha();
+        const croppingPlanes = localState.planeState;
 
-            request.setTargetSizeLodBytes(localState.lodMemorySize);
-            localState.setOldLodSize(localState.lodMemorySize)
+        request.setTargetSizeLodBytes(localState.lodMemorySize);
 
-            request.setCroppingPlanesList(croppingPlanes)
-            request.setRgbaList(rgba)
-            request.setAlpha(alpha)
-            request.setPositionList(positionList)
-            request.setFocalPointList(focalPointList)
-            request.setWindowWidth(widthRef.current)
-            request.setWindowHeight(heightRef.current)
-            request.setViewUpList(viewUpList)
-            request.setDistance(distance)
-            request.setSMethod(localState.sampleType)
+        request.setCroppingPlanesList(croppingPlanes)
+        request.setRgbaList(rgba)
+        request.setAlpha(alpha)
+        request.setPositionList(positionList)
+        request.setFocalPointList(focalPointList)
+        request.setWindowWidth(widthRef.current)
+        request.setWindowHeight(heightRef.current)
+        request.setViewUpList(viewUpList)
+        request.setDistance(distance)
+        request.setSMethod(localState.sampleType)
 
-            console.log("Position: " + positionList)
-            console.log("Focal point: " + focalPointList)
-            console.log("Width: " + widthRef.current)
-            console.log("Height: " + heightRef.current)
-            console.log("ViewUp: " + viewUpList)
-            console.log("Distance: " + distance)
-            console.log("rgb: " + rgba)
-            console.log("Alpha: " + alpha)
-            console.log("Cropping planes: " + localState.cropFilter.getCroppingPlanes())
-            console.log("Sample Type: " + localState.sampleType)
+        console.log("Position: " + positionList)
+        console.log("Focal point: " + focalPointList)
+        console.log("Width: " + widthRef.current)
+        console.log("Height: " + heightRef.current)
+        console.log("ViewUp: " + viewUpList)
+        console.log("Distance: " + distance)
+        console.log("rgb: " + rgba)
+        console.log("Alpha: " + alpha)
+        console.log("Cropping planes: " + localState.cropFilter.getCroppingPlanes())
+        console.log("Sample Type: " + localState.sampleType)
 
 
-            return request
-      
+        return request
+
     }
 
 
@@ -537,11 +549,10 @@ const App = observer(() => {
 
     const resetCube = () => {
         var request = new CameraInfo();
-        request.setTargetSizeLodBytes(10)
+        request.setTargetSizeLodBytes(localState.oldLodSize)
         client.reset(request, {})
-        console.log(originalDimensions)
-        localState.setLodMemorySize(10)
-        renderDataCube(originalArray, originalDimensions)
+        localState.setLodMemorySize(localState.oldLodSize)
+        renderDataCube(localState.originalArray, localState.originalDimensions)
     }
 
     const handleAlignChange = (align: any) => {
