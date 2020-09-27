@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { FileSelector } from './components/FileSelector'
 import { AxisSlider } from './components/AxisSlider'
 import { LodSizeSlider } from './components/LodSizeSlider'
+import { AlignmentSelect } from "./components/AlignmentSelect";
+import { Alignment } from "@blueprintjs/core";
 import './App.css';
 
 import vtkOpenGLRenderWindow from 'vtk.js/Sources/Rendering/OpenGL/RenderWindow';
@@ -52,6 +54,7 @@ const App = observer(() => {
         interactor: null,
         cubeReset: false,
         extent: null,
+        sampleType: 0,
         setPlaneState(plane: any) {
             localState.planeState = plane
         },
@@ -105,6 +108,9 @@ const App = observer(() => {
         },
         setExtent(extent: any) {
             localState.extent = extent;
+        },
+        setSampleType(type:number){
+            localState.sampleType = type;
         }
     }))
 
@@ -124,6 +130,7 @@ const App = observer(() => {
     const [hqNumBytes, setHqNumBytes] = useState(0);
     const [cubeLoaded, setCubeLoaded] = useState(false)
     const [firstStream, setFirstStream] = useState(true)
+    const [alignIndicator, setAlignIndicator] = useState(Alignment.LEFT);
     const renderWindowLodRef = useRef(null);
 
     const widthRef = useRef(0);
@@ -210,7 +217,6 @@ const App = observer(() => {
                 setDimensionZ(response.getDimensionsLodList()[2])
                 setFirstStream(false)
             }
-            console.log(response.getDimensionsLodList())
 
             setRawArray(rawArray => rawArray.concat(response.getBytes()))
             setTotalBytes(totalBytes => totalBytes + response.getNumBytes())
@@ -283,7 +289,6 @@ const App = observer(() => {
     const resetRenderItems = () => {
 
         if (localState.renderer) {
-            console.log('gets to removeall1')
             var view3d = document.getElementById("view3d");
 
             view3d.removeEventListener('mouseup', debounceLog)
@@ -423,11 +428,12 @@ const App = observer(() => {
         }
     }
 
-    const renderFile = async () => {
+    const renderFile = () => {
         setLoading(true)
 
         var request = new FileDetails();
         request.setFileName(filename);
+        request.setSMethod(1);
         var renderFileClient = client.chooseFile(request, {})
         request.setTargetSizeLodBytes(localState.lodMemorySize); //Set the LOD memory size to the size selected
         renderFileClient.on('data', (response: any, err: any) => {
@@ -451,7 +457,6 @@ const App = observer(() => {
 
         if (localState.renderer !== null) {
             const request = new CameraInfo();
-
             const positionList = localState.renderer.getActiveCamera().getPosition()
             const focalPointList = localState.renderer.getActiveCamera().getFocalPoint()
             widthRef.current = renderWindowLodRef.current.offsetWidth
@@ -473,6 +478,8 @@ const App = observer(() => {
             request.setViewUpList(viewUpList)
             request.setDistance(distance)
             request.setTargetSizeLodBytes(localState.lodMemorySize)
+            request.setSMethod(localState.sampleType)
+
             console.log("Position: " + positionList)
             console.log("Focal point: " + focalPointList)
             console.log("Width: " + widthRef.current)
@@ -482,6 +489,8 @@ const App = observer(() => {
             console.log("rgb: " + rgba)
             console.log("Alpha: " + alpha)
             console.log("Cropping planes: " + localState.cropFilter.getCroppingPlanes())
+            console.log("Sample Type: " + localState.sampleType)
+
 
             return request
         }
@@ -527,6 +536,17 @@ const App = observer(() => {
         renderDataCube()
     }
 
+    const handleAlignChange = (align: any) => {
+        if(align === Alignment.LEFT){
+            localState.setSampleType(0)
+        } else{
+            localState.setSampleType(1)
+        }
+        console.log(align);
+        setAlignIndicator(align);
+        getNewLodModel()
+    }
+
     return (
         <div className="container-fluid" >
             <div className="row bg-dark">
@@ -562,12 +582,22 @@ const App = observer(() => {
                 <div className={"d-flex my-auto col col-lg-7"}>
                     {cubeLoaded && <AxisSlider localState={localState} />}
                 </div>
-                <div className={"d-flex my-auto col col-lg-2 d-flex"}>
-                    <div>
+                <div className={"mt-5 "} >
+                    <div className={"row my-auto "}>
                         {cubeLoaded && <button className="btn btn-success " onClick={resetCube}>Reset cropping area</button>}
                     </div>
-                </div>
+                    <div className={"row my-auto pt-4"}>
+                        {cubeLoaded &&
+                            <AlignmentSelect
+                                align={alignIndicator}
+                                allowCenter={false}
+                                label="Sample Type"
+                                onChange={(align: any) => handleAlignChange(align)}
+                            />
+                        }
+                    </div>
 
+                </div>
             </div>
         </div>
     );
