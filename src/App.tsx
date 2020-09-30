@@ -142,6 +142,8 @@ const App = observer(() => {
     const [cubeLoaded, setCubeLoaded] = useState(false)
     const [firstStream, setFirstStream] = useState(true)
     const [fullModel, setFullModel] = useState(false)
+    const [minPixel, setMinPixel] = useState(0);
+    const [maxPixel, setMaxPixel] = useState(0);
     const [alignIndicator, setAlignIndicator] = useState(Alignment.RIGHT);
     const renderWindowLodRef = useRef(null);
 
@@ -231,6 +233,9 @@ const App = observer(() => {
                 setDimensionX(response.getDimensionsLodList()[0]) //Set new dimensions
                 setDimensionY(response.getDimensionsLodList()[1])
                 setDimensionZ(response.getDimensionsLodList()[2])
+                console.log(response.getMaxPixel())
+                setMinPixel(response.getMinPixel())
+                setMaxPixel(response.getMaxPixel())
                 setFirstStream(false)
             }
 
@@ -421,17 +426,19 @@ const App = observer(() => {
         }
 
         function newColorFunction() {
+
             var fun = vtkColorTransferFunction.newInstance();
             localState.setColorTransferFunction(fun)
             fun.addRGBPoint(-0.0, 0.0, 0.0, 0.0);
-            fun.addRGBPoint(0.16, 1.0, 1.0, 1.0);
+            fun.addRGBPoint(maxPixel.toFixed(1), 1.0, 1.0, 1.0);
             return fun;
         }
-
+        console.log(minPixel)
+        console.log(maxPixel)
         function newOpacityFunction() {
             var fun = vtkPiecewiseFunction.newInstance();
             fun.addPoint(-0.0, 0.0);
-            fun.addPoint(0.16, 1.0);
+            fun.addPoint(maxPixel.toFixed(1), 1.0);
             return fun;
         }
         createCube();
@@ -467,14 +474,22 @@ const App = observer(() => {
             }
             if (firstStream) {
                 setLodNumBytes(response.getTotalLodBytes())
+                console.log(response)
+                setMinPixel(response.getMinPixel())
+                setMaxPixel(response.getMaxPixel())
+                let dimensionsArray = response.getDimensionsLodList()
+                setDimensionX(dimensionsArray[0])
+                setDimensionY(dimensionsArray[1])
+                setDimensionZ(dimensionsArray[2])
+                console.log(response.getMaxPixel())
+
                 setFirstStream(false)
             }
-            let dimensionsArray = response.getDimensionsLodList()
+          
             setRawArray(rawArray => rawArray.concat(response.getBytes()))
             setTotalBytes(totalBytes => totalBytes + response.getNumBytes())
-            setDimensionX(dimensionsArray[0])
-            setDimensionY(dimensionsArray[1])
-            setDimensionZ(dimensionsArray[2])
+         
+            
         })
     }
 
