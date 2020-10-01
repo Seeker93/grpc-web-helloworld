@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { FileSelector } from './components/FileSelector'
 import { AxisSlider } from './components/AxisSlider'
+import { TransferFunctionSlider } from './components/TransferFunctionSlider'
+
 import { LodSizeSlider } from './components/LodSizeSlider'
 import { AlignmentSelect } from "./components/AlignmentSelect";
 import { Alignment } from "@blueprintjs/core";
@@ -426,19 +428,19 @@ const App = observer(() => {
         }
 
         function newColorFunction() {
-
+            console.log(Math.round(minPixel * 100) / 100)
+            console.log(Math.round(maxPixel * 100) / 100)
             var fun = vtkColorTransferFunction.newInstance();
             localState.setColorTransferFunction(fun)
-            fun.addRGBPoint(-0.0, 0.0, 0.0, 0.0);
-            fun.addRGBPoint(maxPixel.toFixed(1), 1.0, 1.0, 1.0);
+            fun.addRGBPoint(0.0, 0.0, 0.0, 0.0);
+            fun.addRGBPoint(Math.round(maxPixel * 100) / 100, 1.0, 1.0, 1.0);
             return fun;
         }
-        console.log(minPixel)
-        console.log(maxPixel)
+
         function newOpacityFunction() {
             var fun = vtkPiecewiseFunction.newInstance();
-            fun.addPoint(-0.0, 0.0);
-            fun.addPoint(maxPixel.toFixed(1), 1.0);
+            fun.addPoint(0.0, 0.0);
+            fun.addPoint(Math.round(maxPixel * 100) / 100, 1.0);
             return fun;
         }
         createCube();
@@ -474,22 +476,20 @@ const App = observer(() => {
             }
             if (firstStream) {
                 setLodNumBytes(response.getTotalLodBytes())
-                console.log(response)
                 setMinPixel(response.getMinPixel())
                 setMaxPixel(response.getMaxPixel())
                 let dimensionsArray = response.getDimensionsLodList()
                 setDimensionX(dimensionsArray[0])
                 setDimensionY(dimensionsArray[1])
                 setDimensionZ(dimensionsArray[2])
-                console.log(response.getMaxPixel())
 
                 setFirstStream(false)
             }
-          
+
             setRawArray(rawArray => rawArray.concat(response.getBytes()))
             setTotalBytes(totalBytes => totalBytes + response.getNumBytes())
-         
-            
+
+
         })
     }
 
@@ -600,7 +600,16 @@ const App = observer(() => {
                 {loading &&
                     <img src={logo} className="App-logo" alt="logo" />
                 }
+                    {cubeLoaded &&
+                    <AlignmentSelect
+                        align={alignIndicator}
+                        allowCenter={false}
+                        label="Sample Type"
+                        onChange={(align: any) => handleAlignChange(align)}
+                    />
+                }
             </div>
+         
             <div className={classNames('rendering-window', 'row')} id="view3d" ref={renderWindowLodRef}>
                 {/* Rendering happens in this div */}
 
@@ -608,33 +617,28 @@ const App = observer(() => {
 
             <div className="fixed-bottom bg-dark h-25 justify-content-center row" >
 
-                <div className={"d-flex my-auto col col-lg-2"}>
+                <div className={"d-flex col col-lg-2 mt-4"}>
                     {cubeLoaded &&
-                        <div className={""}>
-                            <LodSizeSlider localState={localState} />
-                            <button className="btn btn-success mt-2" onClick={getNewLodModel}>Request new model</button>
+                        <div>
+                            <div className={"mb-3"}>
+                                <LodSizeSlider localState={localState} />
+                                <button className="btn btn-success mt-2" onClick={getNewLodModel}>Request new model</button>
+                            </div>
+                            <div className={""}>
+                                {cubeLoaded && <button className="btn btn-outline-secondary text-white " onClick={resetCube}>Reset cropping area</button>}
+                            </div>
                         </div>
                     }
                 </div>
-                <div className={"d-flex my-auto col col-lg-7"}>
+                <div className={"d-flex col col-lg-7 mt-4"}>
                     {cubeLoaded && <AxisSlider localState={localState} />}
                 </div>
-                <div className={"mt-5 "} >
-                    <div className={"row my-auto "}>
-                        {cubeLoaded && <button className="btn btn-success " onClick={resetCube}>Reset cropping area</button>}
-                    </div>
-                    <div className={"row my-auto pt-4"}>
-                        {cubeLoaded &&
-                            <AlignmentSelect
-                                align={alignIndicator}
-                                allowCenter={false}
-                                label="Sample Type"
-                                onChange={(align: any) => handleAlignChange(align)}
-                            />
-                        }
-                    </div>
 
+                <div className={"col col-lg-2"}>
+                    {cubeLoaded && <TransferFunctionSlider localState={localState} />}
                 </div>
+
+
             </div>
         </div>
     );

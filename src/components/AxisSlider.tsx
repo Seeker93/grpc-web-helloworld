@@ -62,6 +62,8 @@ export const AxisSlider = observer((props: any) => {
 
     return (
         <div className={"slider"}>
+            <h5 className="text-light">Adjust Axes</h5>
+
             <div className="row">
                 <h6 className="label text-white">I:</h6>
                 <div className={"col-sm-5 text-white flex-start mr-4"}>
