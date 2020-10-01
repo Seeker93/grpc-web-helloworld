@@ -21,7 +21,6 @@
 }
 
 .loading-div{
-  height: 80px;
   display: flex;
   justify-content: flex-end;
 }
@@ -31,6 +30,9 @@
   color: #61dafb;
 }
 
+.widget-container {
+  height:90%;
+}
 
 @keyframes App-logo-spin {
   from {

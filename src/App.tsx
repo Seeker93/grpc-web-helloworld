@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { FileSelector } from './components/FileSelector'
+import { ColorSelector } from './components/ColorSelector'
 import { AxisSlider } from './components/AxisSlider'
 import { TransferFunctionSlider } from './components/TransferFunctionSlider'
 
@@ -7,6 +8,13 @@ import { LodSizeSlider } from './components/LodSizeSlider'
 import { AlignmentSelect } from "./components/AlignmentSelect";
 import { Alignment } from "@blueprintjs/core";
 import './App.css';
+
+import vtkFullScreenRenderWindow from 'vtk.js/Sources/Rendering/Misc/FullScreenRenderWindow';
+import vtkHttpDataSetReader from 'vtk.js/Sources/IO/Core/HttpDataSetReader';
+import vtkPiecewiseGaussianWidget from 'vtk.js/Sources/Interaction/Widgets/PiecewiseGaussianWidget';
+
+import vtkColorMaps from 'vtk.js/Sources/Rendering/Core/ColorTransferFunction/ColorMaps';
+
 
 import vtkOpenGLRenderWindow from 'vtk.js/Sources/Rendering/OpenGL/RenderWindow';
 import vtkRenderWindow from 'vtk.js/Sources/Rendering/Core/RenderWindow';
@@ -45,6 +53,7 @@ const App = observer(() => {
         renderWindow: null,
         volumeActor: null,
         colorTransferFunction: null,
+        pieceWiseFunction: null,
         axesChanged: false,
         axesReleased: false,
         lodMemorySize: 10,
@@ -60,6 +69,7 @@ const App = observer(() => {
         sampleType: 0,
         originalArray: null,
         originalDimensions: null,
+        colorWidget: null,
         setPlaneState(plane: any) {
             localState.planeState = plane
         },
@@ -77,6 +87,9 @@ const App = observer(() => {
         },
         setColorTransferFunction(fun: any) {
             localState.colorTransferFunction = fun;
+        },
+        setPiecewiseFunction(fun: any) {
+            localState.pieceWiseFunction = fun;
         },
         setRenderer(ren: any) {
             localState.renderer = ren;
@@ -125,6 +138,9 @@ const App = observer(() => {
         },
         setOriginalDimensions(dims: any) {
             localState.originalDimensions = dims;
+        },
+        setColorWidget(widget: any) {
+            localState.colorWidget = widget;
         }
     }))
 
@@ -235,7 +251,6 @@ const App = observer(() => {
                 setDimensionX(response.getDimensionsLodList()[0]) //Set new dimensions
                 setDimensionY(response.getDimensionsLodList()[1])
                 setDimensionZ(response.getDimensionsLodList()[2])
-                console.log(response.getMaxPixel())
                 setMinPixel(response.getMinPixel())
                 setMaxPixel(response.getMaxPixel())
                 setFirstStream(false)
@@ -333,6 +348,7 @@ const App = observer(() => {
         setLoading(true)
         resetRenderItems()
         function createCube() {
+            const globalDataRange = [minPixel, maxPixel];
             let width = dimensions[0]; let height = dimensions[1]; let depth = dimensions[2];
 
             const renderWindow = vtkRenderWindow.newInstance(); //Now uses RenderWindow instead of Fullscreen render window
@@ -358,6 +374,60 @@ const App = observer(() => {
             imageData.setExtent([0, width - 1, 0, height - 1, 0, depth - 1]);
             imageData.getPointData().setScalars(scalars);
 
+
+
+            const colorWidget = vtkPiecewiseGaussianWidget.newInstance({
+                numberOfBins: 256,
+                size: [400, 150],
+            });
+
+            localState.setColorWidget(colorWidget);
+
+            localState.colorWidget.updateStyle({
+                backgroundColor: 'rgba(255, 255, 255, 0.6)',
+                histogramColor: 'rgba(100, 100, 100, 0.5)',
+                strokeColor: 'rgb(0, 0, 0)',
+                activeColor: 'rgb(255, 255, 255)',
+                handleColor: 'rgb(50, 150, 50)',
+                buttonDisableFillColor: 'rgba(255, 255, 255, 0.5)',
+                buttonDisableStrokeColor: 'rgba(0, 0, 0, 0.5)',
+                buttonStrokeColor: 'rgba(0, 0, 0, 1)',
+                buttonFillColor: 'rgba(255, 255, 255, 1)',
+                strokeWidth: 2,
+                activeStrokeWidth: 3,
+                buttonStrokeWidth: 1.5,
+                handleWidth: 3,
+                iconSize: 20, // Can be 0 if you want to remove buttons (dblClick for (+) / rightClick for (-))
+                padding: 10,
+            });
+
+            var view3d = document.getElementById("view3d");
+
+            view3d.addEventListener('mouseup', debounceLog);
+
+            const widgetContainer = document.getElementById("widgetContainer");;
+            widgetContainer.style.background = 'rgba(255, 255, 255, 0.3)';
+            widgetContainer.style.width = '100%';
+
+            const dataRange = scalars.getRange();
+            globalDataRange[0] = dataRange[0];
+            globalDataRange[1] = dataRange[1];
+            const piecewiseFunction = vtkPiecewiseFunction.newInstance();
+            localState.setPiecewiseFunction(piecewiseFunction)
+            const lookupTable = vtkColorTransferFunction.newInstance();
+            localState.setColorTransferFunction(lookupTable)
+
+            localState.colorWidget.setDataArray(scalars.getData());
+            localState.colorWidget.applyOpacity(localState.pieceWiseFunction);
+            localState.colorWidget.addGaussian(Math.round(maxPixel * 100), 1, 1, 1, 1);
+
+            localState.colorWidget.setColorTransferFunction(localState.colorTransferFunction);
+            localState.colorTransferFunction.onModified(() => {
+                localState.colorWidget.render();
+                localState.renderWindow.render();
+            });
+
+
             localState.setExtent(imageData.getExtent());
 
             const cropFilter = vtkImageCropFilter.newInstance();
@@ -366,17 +436,33 @@ const App = observer(() => {
             var volumeActor = vtkVolume.newInstance();
             localState.setVolumeActor(volumeActor)
 
+            initProps(localState.volumeActor.getProperty());
+
+            localState.volumeActor.getProperty().setRGBTransferFunction(0, localState.colorTransferFunction);
+            localState.volumeActor.getProperty().setScalarOpacity(0, localState.pieceWiseFunction);
+            localState.volumeActor.getProperty().setInterpolationTypeToFastLinear();
             cropFilter.setInputData(imageData);
             localState.mapper.setInputConnection(cropFilter.getOutputPort())
             localState.mapper.setBlendModeToComposite();
             cropFilter.setCroppingPlanes(...imageData.getExtent())
 
             localState.volumeActor.setMapper(mapper);
-            initProps(volumeActor.getProperty());
+            localState.colorWidget.onOpacityChange(() => {
+                colorWidget.applyOpacity(localState.pieceWiseFunction);
+                if (!renderWindow.getInteractor().isAnimating()) {
+                    renderWindow.render();
+                }
+            });
 
-            var view3d = document.getElementById("view3d");
-
-            view3d.addEventListener('mouseup', debounceLog);
+            localState.colorWidget.setContainer(widgetContainer);
+            localState.colorWidget.bindMouseListeners();
+            localState.colorWidget.onAnimation((start) => {
+                if (start) {
+                    localState.renderWindow.getInteractor().requestAnimation(widget);
+                } else {
+                    localState.renderWindow.getInteractor().cancelAnimation(widget);
+                }
+            });
 
             const renderer = vtkRenderer.newInstance({
                 background: [255, 255, 255]
@@ -422,26 +508,20 @@ const App = observer(() => {
         function initProps(property) {
             property.setRGBTransferFunction(0, newColorFunction());
             property.setScalarOpacity(0, newOpacityFunction());
-            property.setInterpolationTypeToNearest();
             property.setUseGradientOpacity(0, false);
 
         }
 
         function newColorFunction() {
-            console.log(Math.round(minPixel * 100) / 100)
-            console.log(Math.round(maxPixel * 100) / 100)
-            var fun = vtkColorTransferFunction.newInstance();
-            localState.setColorTransferFunction(fun)
-            fun.addRGBPoint(0.0, 0.0, 0.0, 0.0);
-            fun.addRGBPoint(Math.round(maxPixel * 100) / 100, 1.0, 1.0, 1.0);
-            return fun;
+            localState.colorTransferFunction.addRGBPoint(0.0, 0.0, 0.0, 0.0);
+            localState.colorTransferFunction.addRGBPoint(Math.round(maxPixel * 100) / 100, 1.0, 1.0, 1.0);
+            return localState.colorTransferFunction;
         }
 
         function newOpacityFunction() {
-            var fun = vtkPiecewiseFunction.newInstance();
-            fun.addPoint(0.0, 0.0);
-            fun.addPoint(Math.round(maxPixel * 100) / 100, 1.0);
-            return fun;
+            localState.pieceWiseFunction.addPoint(0.0, 0.0);
+            localState.pieceWiseFunction.addPoint(Math.round(maxPixel * 100) / 100, 1.0);
+            return localState.pieceWiseFunction;
         }
         createCube();
         setLoading(false);
@@ -461,6 +541,7 @@ const App = observer(() => {
             setLoading(false)
         }
     }
+    console.log(localState.pieceWiseFunction)
 
     const renderFile = () => {
         setLoading(true)
@@ -488,8 +569,6 @@ const App = observer(() => {
 
             setRawArray(rawArray => rawArray.concat(response.getBytes()))
             setTotalBytes(totalBytes => totalBytes + response.getNumBytes())
-
-
         })
     }
 
@@ -502,15 +581,15 @@ const App = observer(() => {
         heightRef.current = renderWindowLodRef.current.offsetHeight
         const viewUpList = localState.renderer.getActiveCamera().getViewUp()
         const distance = localState.renderer.getActiveCamera().getDistance()
-        const rgba = [localState.colorTransferFunction.getRedValue(0), localState.colorTransferFunction.getGreenValue(0), localState.colorTransferFunction.getBlueValue(0)]
-        const alpha = localState.colorTransferFunction.getAlpha();
+        //const rgba = [localState.colorTransferFunction.getRedValue(0), localState.colorTransferFunction.getGreenValue(0), localState.colorTransferFunction.getBlueValue(0)]
+        // const alpha = localState.colorTransferFunction.getAlpha();
         const croppingPlanes = localState.planeState;
 
         request.setTargetSizeLodBytes(localState.lodMemorySize);
 
         request.setCroppingPlanesList(croppingPlanes)
-        request.setRgbaList(rgba)
-        request.setAlpha(alpha)
+        // request.setRgbaList(rgba)
+        // request.setAlpha(alpha)
         request.setPositionList(positionList)
         request.setFocalPointList(focalPointList)
         request.setWindowWidth(widthRef.current)
@@ -525,8 +604,8 @@ const App = observer(() => {
         console.log("Height: " + heightRef.current)
         console.log("ViewUp: " + viewUpList)
         console.log("Distance: " + distance)
-        console.log("rgb: " + rgba)
-        console.log("Alpha: " + alpha)
+        // console.log("rgb: " + rgba)
+        // console.log("Alpha: " + alpha)
         console.log("Cropping planes: " + localState.cropFilter.getCroppingPlanes())
         console.log("Sample Type: " + localState.sampleType)
 
@@ -584,6 +663,17 @@ const App = observer(() => {
         getNewLodModel()
     }
 
+    // const onColorChosen = (color: any) => {
+    //     localState.volumeActor.getProperty().setRGBTransferFunction(0, color);
+    // }
+
+    const resetOpacity = () => {
+        localState.pieceWiseFunction.addPoint(0.0, 0.0);
+        localState.pieceWiseFunction.addPoint(Math.round(maxPixel * 100) / 100, 1.0);
+        localState.colorWidget.applyOpacity(localState.pieceWiseFunction);
+  
+    }
+
     return (
         <div className="container-fluid" >
             <div className="row bg-dark">
@@ -600,16 +690,23 @@ const App = observer(() => {
                 {loading &&
                     <img src={logo} className="App-logo" alt="logo" />
                 }
-                    {cubeLoaded &&
-                    <AlignmentSelect
-                        align={alignIndicator}
-                        allowCenter={false}
-                        label="Sample Type"
-                        onChange={(align: any) => handleAlignChange(align)}
-                    />
+                {cubeLoaded &&
+                    <div className={"row"}>
+                        {/* <div className={"col mt-3"}>
+                            <ColorSelector colorMap={[vtkColorMaps.rgbPresetNames[23], vtkColorMaps.rgbPresetNames[2], vtkColorMaps.rgbPresetNames[8]]} onItemSelected={(color: any) => onColorChosen(color)} />
+                        </div> */}
+                        <div className={"col mt-3 ml-2"}>
+
+                            <AlignmentSelect
+                                align={alignIndicator}
+                                allowCenter={false}
+                                onChange={(align: any) => handleAlignChange(align)}
+                            />
+                        </div>
+                    </div>
                 }
             </div>
-         
+
             <div className={classNames('rendering-window', 'row')} id="view3d" ref={renderWindowLodRef}>
                 {/* Rendering happens in this div */}
 
@@ -630,17 +727,19 @@ const App = observer(() => {
                         </div>
                     }
                 </div>
-                <div className={"d-flex col col-lg-7 mt-4"}>
+                <div className={"d-flex col col-lg-6 mt-4"}>
                     {cubeLoaded && <AxisSlider localState={localState} />}
                 </div>
+                <div className="d-flex flex-column col col-lg-3 mt-4 mb-4">
+                    <div id="widgetContainer" className={"pt-2"}>
 
-                <div className={"col col-lg-2"}>
-                    {cubeLoaded && <TransferFunctionSlider localState={localState} />}
+                    </div>
+                    {cubeLoaded && <button className="btn btn-sm btn-outline-secondary text-white " onClick={resetOpacity}>Reset opacity</button>}
                 </div>
 
 
             </div>
-        </div>
+        </div >
     );
 
 })

@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react'
+import React from 'react'
 import { Slider } from "@blueprintjs/core";
 import { observer } from 'mobx-react'
 import './AxisSlider.css';
@@ -62,7 +62,7 @@ export const AxisSlider = observer((props: any) => {
 
     return (
         <div className={"slider"}>
-            <h5 className="text-light">Adjust Axes</h5>
+            <h6 className="text-light">Adjust Axes</h6>
 
             <div className="row">
                 <h6 className="label text-white">I:</h6>
