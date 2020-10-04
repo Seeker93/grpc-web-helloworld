@@ -2,15 +2,11 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { FileSelector } from './components/FileSelector'
 import { ColorSelector } from './components/ColorSelector'
 import { AxisSlider } from './components/AxisSlider'
-import { TransferFunctionSlider } from './components/TransferFunctionSlider'
 
 import { LodSizeSlider } from './components/LodSizeSlider'
 import { AlignmentSelect } from "./components/AlignmentSelect";
 import { Alignment } from "@blueprintjs/core";
 import './App.css';
-
-import vtkFullScreenRenderWindow from 'vtk.js/Sources/Rendering/Misc/FullScreenRenderWindow';
-import vtkHttpDataSetReader from 'vtk.js/Sources/IO/Core/HttpDataSetReader';
 import vtkPiecewiseGaussianWidget from 'vtk.js/Sources/Interaction/Widgets/PiecewiseGaussianWidget';
 
 import vtkColorMaps from 'vtk.js/Sources/Rendering/Core/ColorTransferFunction/ColorMaps';
@@ -352,7 +348,7 @@ const App = observer(() => {
             let width = dimensions[0]; let height = dimensions[1]; let depth = dimensions[2];
 
             const renderWindow = vtkRenderWindow.newInstance(); //Now uses RenderWindow instead of Fullscreen render window
-            localState.setRenderWindow(renderWindow)    
+            localState.setRenderWindow(renderWindow)
 
             var rawValues = concatArrays(arrayToRender)
             if (!cubeLoaded) {
@@ -436,7 +432,7 @@ const App = observer(() => {
             var volumeActor = vtkVolume.newInstance();
             localState.setVolumeActor(volumeActor)
 
-            initProps(localState.volumeActor.getProperty());
+            initTransferFunctionProps(localState.volumeActor.getProperty());
 
             localState.volumeActor.getProperty().setRGBTransferFunction(0, localState.colorTransferFunction);
             localState.volumeActor.getProperty().setScalarOpacity(0, localState.pieceWiseFunction);
@@ -449,7 +445,7 @@ const App = observer(() => {
             localState.volumeActor.setMapper(mapper);
             localState.colorWidget.onOpacityChange(() => {
                 removeImage()
-                console.log(localState.pieceWiseFunction.getDataPointer())  
+                console.log(localState.pieceWiseFunction.getDataPointer())
                 colorWidget.applyOpacity(localState.pieceWiseFunction);
                 if (!renderWindow.getInteractor().isAnimating()) {
                     renderWindow.render();
@@ -507,24 +503,8 @@ const App = observer(() => {
             localState.widget.setEdgeHandlesEnabled(true);
         }
 
-        function initProps(property) {
-            property.setRGBTransferFunction(0, newColorFunction());
-            property.setScalarOpacity(0, newOpacityFunction());
-            property.setUseGradientOpacity(0, false);
 
-        }
 
-        function newColorFunction() {
-            localState.colorTransferFunction.addRGBPoint(0.0, 0.0, 0.0, 0.0);
-            localState.colorTransferFunction.addRGBPoint(Math.round(maxPixel * 100) / 100, 1.0, 1.0, 1.0);
-            return localState.colorTransferFunction;
-        }
-
-        function newOpacityFunction() {
-            localState.pieceWiseFunction.addPoint(0.0, 0.0);
-            localState.pieceWiseFunction.addPoint(Math.round(maxPixel * 100) / 100, 1.0);
-            return localState.pieceWiseFunction;
-        }
         createCube();
         setLoading(false);
         setFirstStream(true);
@@ -535,6 +515,25 @@ const App = observer(() => {
             localState.setOldLodSize(localState.lodMemorySize);
             setFullModel(false);
         }
+    }
+
+    const defaultColorFunction = () => {
+        localState.colorTransferFunction.addRGBPoint(0.0, 0.0, 0.0, 0.0);
+        localState.colorTransferFunction.addRGBPoint(Math.round(maxPixel * 100) / 100, 1.0, 1.0, 1.0);
+        return localState.colorTransferFunction;
+    }
+
+    const defaultOpacityFunction = () => {
+        localState.pieceWiseFunction.addPoint(0.0, 0.0);
+        localState.pieceWiseFunction.addPoint(Math.round(maxPixel * 100) / 100, 1.0);
+        return localState.pieceWiseFunction;
+    }
+
+    const initTransferFunctionProps = (property: any) => {
+        property.setRGBTransferFunction(0, defaultColorFunction());
+        property.setScalarOpacity(0, defaultOpacityFunction());
+        property.setUseGradientOpacity(0, false);
+
     }
 
     const onFileChosen = (filename: any) => {
@@ -583,8 +582,8 @@ const App = observer(() => {
         const viewUpList = localState.renderer.getActiveCamera().getViewUp()
         const distance = localState.renderer.getActiveCamera().getDistance()
         let opacityArray = localState.pieceWiseFunction.getDataPointer()
-        const rgba = [0,0,0,0]
-       // const alpha = localState.colorTransferFunction.getAlpha();
+        const rgba = [0, 0, 0, 0]
+        // const alpha = localState.colorTransferFunction.getAlpha();
         const croppingPlanes = localState.planeState;
 
         request.setTargetSizeLodBytes(localState.lodMemorySize);
@@ -616,9 +615,7 @@ const App = observer(() => {
 
     }
 
-    if(localState.pieceWiseFunction){
-        console.log(localState.pieceWiseFunction.getDataPointer())
-    }
+ 
     const debounceLog = useCallback(debounce(() => {
         setTotalHqBytes(0)
         setHqData([])
@@ -668,15 +665,19 @@ const App = observer(() => {
         getNewLodModel()
     }
 
-    // const onColorChosen = (color: any) => {
-    //     localState.volumeActor.getProperty().setRGBTransferFunction(0, color);
-    // }
+    const onColorChosen = (color: any) => {
+        if (color === "Default") {
+            localState.colorTransferFunction.removeAllPoints();
+            initTransferFunctionProps(localState.volumeActor.getProperty())
+        } else {
+            localState.colorTransferFunction.applyColorMap(vtkColorMaps.getPresetByName(color))
+        }
+    }
 
     const resetOpacity = () => {
         localState.pieceWiseFunction.addPoint(0.0, 0.0);
         localState.pieceWiseFunction.addPoint(Math.round(maxPixel * 100) / 100, 1.0);
         localState.colorWidget.applyOpacity(localState.pieceWiseFunction);
-  
     }
 
     return (
@@ -697,9 +698,9 @@ const App = observer(() => {
                 }
                 {cubeLoaded &&
                     <div className={"row"}>
-                        {/* <div className={"col mt-3"}>
-                            <ColorSelector colorMap={[vtkColorMaps.rgbPresetNames[23], vtkColorMaps.rgbPresetNames[2], vtkColorMaps.rgbPresetNames[8]]} onItemSelected={(color: any) => onColorChosen(color)} />
-                        </div> */}
+                        <div className={"col mt-3"}>
+                            <ColorSelector colorMap={["Default", vtkColorMaps.rgbPresetNames[12], vtkColorMaps.rgbPresetNames[11], vtkColorMaps.rgbPresetNames[119]]} onItemSelected={(color: any) => onColorChosen(color)} />
+                        </div>
                         <div className={"col mt-3 ml-2"}>
 
                             <AlignmentSelect
