@@ -538,7 +538,7 @@ const App = observer(() => {
         console.log("Alpha: " + alpha)
         console.log("Cropping planes: " + localState.cropFilter.getCroppingPlanes())
         console.log("Sample Type: " + localState.sampleType)
-        console.log("Uuid "  + uuid)
+        console.log("Uuid "  + uniqueId)
 
         return request
 
