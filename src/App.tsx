@@ -24,7 +24,7 @@ import vtkRenderer from 'vtk.js/Sources/Rendering/Core/Renderer';
 import vtkRenderWindowInteractor from 'vtk.js/Sources/Rendering/Core/RenderWindowInteractor';
 import vtkImageCropFilter from 'vtk.js/Sources/Filters/General/ImageCropFilter';
 import vtkInteractorStyleTrackballCamera from 'vtk.js/Sources/Interaction/Style/InteractorStyleTrackballCamera';
-
+import { v4 as uuidv4 } from 'uuid';
 import logo from "./logo.svg";
 import { observer, useLocalStore } from 'mobx-react'
 import { debounce, YUV2RBG } from './utils/helperFunctions'
@@ -60,6 +60,7 @@ const App = observer(() => {
         sampleType: 0,
         originalArray: null,
         originalDimensions: null,
+        currentUuid: "",
         setPlaneState(plane: any) {
             localState.planeState = plane
         },
@@ -125,6 +126,9 @@ const App = observer(() => {
         },
         setOriginalDimensions(dims: any) {
             localState.originalDimensions = dims;
+        },
+        setCurrentUuid(uuid: string) {
+            localState.currentUuid = uuid;
         }
     }))
 
@@ -302,7 +306,7 @@ const App = observer(() => {
 
         localState.setSliceRenderer(sliceRenderer)
         localState.sliceRenderer.addActor(actor);
-        let bounds = [0, renderWindowLodRef.current.offsetWidth -1, 0, renderWindowLodRef.current.offsetHeight -1, 0, 0]
+        let bounds = [0, renderWindowLodRef.current.offsetWidth - 1, 0, renderWindowLodRef.current.offsetHeight - 1, 0, 0]
         localState.sliceRenderer.resetCameraNoOffset(bounds);
         console.log(bounds)
         localState.renderWindow.addRenderer(localState.sliceRenderer) // Overlay slice on top of volume after user stops interacting
@@ -507,6 +511,8 @@ const App = observer(() => {
         const rgba = [localState.colorTransferFunction.getRedValue(0), localState.colorTransferFunction.getGreenValue(0), localState.colorTransferFunction.getBlueValue(0)]
         const alpha = localState.colorTransferFunction.getAlpha();
         const croppingPlanes = localState.planeState;
+        let uniqueId = uuidv4();
+        localState.setCurrentUuid(uniqueId);
 
         request.setTargetSizeLodBytes(localState.lodMemorySize);
 
@@ -520,6 +526,7 @@ const App = observer(() => {
         request.setViewUpList(viewUpList)
         request.setDistance(distance)
         request.setSMethod(localState.sampleType)
+        request.setUuid(uniqueId)
 
         console.log("Position: " + positionList)
         console.log("Focal point: " + focalPointList)
@@ -531,6 +538,7 @@ const App = observer(() => {
         console.log("Alpha: " + alpha)
         console.log("Cropping planes: " + localState.cropFilter.getCroppingPlanes())
         console.log("Sample Type: " + localState.sampleType)
+        console.log("Uuid "  + uuid)
 
         return request
 
@@ -546,18 +554,23 @@ const App = observer(() => {
         var renderClient = client.getHQRender(request, {})
         renderClient.on('data', (response: any, err: any) => {
             if (response) {
-                if (firstStream) {
-                    setHqNumBytes(response.getSizeInBytes())
-                    setFirstStream(false)
+                if (response.getUuid() !== localState.currentUuid) {
+                    console.log('Stale image, do not use')
                 }
-                setHqData(hqData => hqData.concat(response.getBytes()))
-                setTotalHqBytes(totalHqBytes => totalHqBytes + response.getNumBytes())
+                else {
+                    if (firstStream) {
+                        setHqNumBytes(response.getSizeInBytes())
+                        setFirstStream(false)
+                    }
+                    setHqData(hqData => hqData.concat(response.getBytes()))
+                    setTotalHqBytes(totalHqBytes => totalHqBytes + response.getNumBytes())
+                }
             };
             if (err) {
                 console.log(err)
             }
         })
-    }, 250), [])
+    }, 300), [])
 
 
 
