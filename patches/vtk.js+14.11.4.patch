@@ -1078,15 +1078,16 @@ index 4fce382..ee19491 100644
      // model.container.removeEventListener('click', preventDefault); // Avoid stopping event propagation
      model.container.removeEventListener('wheel', publicAPI.handleWheel);
 diff --git a/node_modules/vtk.js/Sources/Rendering/Core/Renderer/index.js b/node_modules/vtk.js/Sources/Rendering/Core/Renderer/index.js
-index cb7384b..30020f5 100644
+index cb7384b..2b0a991 100644
 --- a/node_modules/vtk.js/Sources/Rendering/Core/Renderer/index.js
 +++ b/node_modules/vtk.js/Sources/Rendering/Core/Renderer/index.js
-@@ -458,6 +458,99 @@ function vtkRenderer(publicAPI, model) {
+@@ -458,6 +458,97 @@ function vtkRenderer(publicAPI, model) {
      return true;
    };
  
 +  publicAPI.resetCameraNoOffset = (bounds = null) => {
 +    const boundsToUse = bounds || publicAPI.computeVisiblePropBounds();
++    console.log(boundsToUse)
 +    const center = [0, 0, 0];
 +
 +    if (!vtkMath.areBoundsInitialized(boundsToUse)) {
@@ -1107,11 +1108,11 @@ index cb7384b..30020f5 100644
 +    // the view angle to become very small and cause bad depth sorting.
 +    model.activeCamera.setViewAngle(30.0);
 +
-+    center[0] = (boundsToUse[0] + boundsToUse[1]) / 2.0;
-+    center[1] = (boundsToUse[2] + boundsToUse[3]) / 2.0;
++    center[0] = (boundsToUse[0] + boundsToUse[1] -8) / 2.0;
++    center[1] = (boundsToUse[2] + boundsToUse[3] -12) / 2.0;
 +    center[2] = (boundsToUse[4] + boundsToUse[5]) / 2.0;
 +
-+    let w1 = boundsToUse[1] - boundsToUse[0];
++    let w1 = boundsToUse[1] - boundsToUse[0] ;
 +    let w2 = boundsToUse[3] - boundsToUse[2];
 +    let w3 = boundsToUse[5] - boundsToUse[4];
 +    w1 *= w1;
@@ -1123,7 +1124,7 @@ index cb7384b..30020f5 100644
 +    radius = radius === 0 ? 1.0 : radius;
 +
 +    // compute the radius of the enclosing sphere
-+    radius = Math.sqrt(radius) * 0.125;
++    radius = Math.sqrt(radius) * 0.5;
 +
 +    // default so that the bounding sphere fits within the view fustrum
 +
@@ -1138,10 +1139,8 @@ index cb7384b..30020f5 100644
 +    // this forms a right triangle with one side being the radius, another being
 +    // the target distance for the camera, then just find the target dist using
 +    // a sin.
-+    const angle = vtkMath.radiansFromDegrees(model.activeCamera.getViewAngle());
 +    const parallelScale = radius;
-+    const distance = radius / Math.sin(angle * 0.5);
-+
++    const distance = 930;
 +    // check view-up vector against view plane normal
 +    const vup = model.activeCamera.getViewUp();
 +    if (Math.abs(vtkMath.dot(vup, vn)) > 0.999) {
@@ -1176,8 +1175,7 @@ index cb7384b..30020f5 100644
 +
 +    return true;
 +  };
-+
-+
++  
    publicAPI.resetCameraClippingRange = (bounds = null) => {
      const boundsToUse = bounds || publicAPI.computeVisiblePropBounds();
  
