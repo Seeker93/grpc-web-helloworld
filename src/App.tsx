@@ -302,7 +302,9 @@ const App = observer(() => {
 
         localState.setSliceRenderer(sliceRenderer)
         localState.sliceRenderer.addActor(actor);
-        localState.sliceRenderer.resetCameraNoOffset();
+        let bounds = [0, renderWindowLodRef.current.offsetWidth -1, 0, renderWindowLodRef.current.offsetHeight -1, 0, 0]
+        localState.sliceRenderer.resetCameraNoOffset(bounds);
+        console.log(bounds)
         localState.renderWindow.addRenderer(localState.sliceRenderer) // Overlay slice on top of volume after user stops interacting
         localState.renderWindow.render();
         setFirstStream(true);
@@ -600,7 +602,7 @@ const App = observer(() => {
                 {loading &&
                     <img src={logo} className="App-logo" alt="logo" />
                 }
-                    {cubeLoaded &&
+                {cubeLoaded &&
                     <AlignmentSelect
                         align={alignIndicator}
                         allowCenter={false}
@@ -609,7 +611,7 @@ const App = observer(() => {
                     />
                 }
             </div>
-         
+
             <div className={classNames('rendering-window', 'row')} id="view3d" ref={renderWindowLodRef}>
                 {/* Rendering happens in this div */}
 

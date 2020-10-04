@@ -1078,7 +1078,7 @@ index 4fce382..ee19491 100644
      // model.container.removeEventListener('click', preventDefault); // Avoid stopping event propagation
      model.container.removeEventListener('wheel', publicAPI.handleWheel);
 diff --git a/node_modules/vtk.js/Sources/Rendering/Core/Renderer/index.js b/node_modules/vtk.js/Sources/Rendering/Core/Renderer/index.js
-index cb7384b..2b0a991 100644
+index cb7384b..7377ae3 100644
 --- a/node_modules/vtk.js/Sources/Rendering/Core/Renderer/index.js
 +++ b/node_modules/vtk.js/Sources/Rendering/Core/Renderer/index.js
 @@ -458,6 +458,97 @@ function vtkRenderer(publicAPI, model) {
@@ -1108,8 +1108,8 @@ index cb7384b..2b0a991 100644
 +    // the view angle to become very small and cause bad depth sorting.
 +    model.activeCamera.setViewAngle(30.0);
 +
-+    center[0] = (boundsToUse[0] + boundsToUse[1] -8) / 2.0;
-+    center[1] = (boundsToUse[2] + boundsToUse[3] -12) / 2.0;
++    center[0] = (boundsToUse[0] + boundsToUse[1]) / 2.0;
++    center[1] = (boundsToUse[2] + boundsToUse[3]) / 2.0;
 +    center[2] = (boundsToUse[4] + boundsToUse[5]) / 2.0;
 +
 +    let w1 = boundsToUse[1] - boundsToUse[0] ;
