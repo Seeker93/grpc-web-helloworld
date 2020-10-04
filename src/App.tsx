@@ -352,7 +352,7 @@ const App = observer(() => {
             let width = dimensions[0]; let height = dimensions[1]; let depth = dimensions[2];
 
             const renderWindow = vtkRenderWindow.newInstance(); //Now uses RenderWindow instead of Fullscreen render window
-            localState.setRenderWindow(renderWindow)
+            localState.setRenderWindow(renderWindow)    
 
             var rawValues = concatArrays(arrayToRender)
             if (!cubeLoaded) {
@@ -448,6 +448,8 @@ const App = observer(() => {
 
             localState.volumeActor.setMapper(mapper);
             localState.colorWidget.onOpacityChange(() => {
+                removeImage()
+                console.log(localState.pieceWiseFunction.getDataPointer())  
                 colorWidget.applyOpacity(localState.pieceWiseFunction);
                 if (!renderWindow.getInteractor().isAnimating()) {
                     renderWindow.render();
@@ -541,7 +543,6 @@ const App = observer(() => {
             setLoading(false)
         }
     }
-    console.log(localState.pieceWiseFunction)
 
     const renderFile = () => {
         setLoading(true)
@@ -581,15 +582,16 @@ const App = observer(() => {
         heightRef.current = renderWindowLodRef.current.offsetHeight
         const viewUpList = localState.renderer.getActiveCamera().getViewUp()
         const distance = localState.renderer.getActiveCamera().getDistance()
-        //const rgba = [localState.colorTransferFunction.getRedValue(0), localState.colorTransferFunction.getGreenValue(0), localState.colorTransferFunction.getBlueValue(0)]
-        // const alpha = localState.colorTransferFunction.getAlpha();
+        let opacityArray = localState.pieceWiseFunction.getDataPointer()
+        const rgba = [0,0,0,0]
+       // const alpha = localState.colorTransferFunction.getAlpha();
         const croppingPlanes = localState.planeState;
 
         request.setTargetSizeLodBytes(localState.lodMemorySize);
 
         request.setCroppingPlanesList(croppingPlanes)
-        // request.setRgbaList(rgba)
-        // request.setAlpha(alpha)
+        request.setRgbaList(rgba)
+        request.setAlpha(1)
         request.setPositionList(positionList)
         request.setFocalPointList(focalPointList)
         request.setWindowWidth(widthRef.current)
@@ -597,6 +599,7 @@ const App = observer(() => {
         request.setViewUpList(viewUpList)
         request.setDistance(distance)
         request.setSMethod(localState.sampleType)
+        request.setOpacityArrayList(opacityArray)
 
         console.log("Position: " + positionList)
         console.log("Focal point: " + focalPointList)
@@ -613,7 +616,9 @@ const App = observer(() => {
 
     }
 
-
+    if(localState.pieceWiseFunction){
+        console.log(localState.pieceWiseFunction.getDataPointer())
+    }
     const debounceLog = useCallback(debounce(() => {
         setTotalHqBytes(0)
         setHqData([])
