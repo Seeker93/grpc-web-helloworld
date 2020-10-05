@@ -66,6 +66,8 @@ const App = observer(() => {
         originalArray: null,
         originalDimensions: null,
         colorWidget: null,
+        colorArray: null,
+        scalars:null,
         setPlaneState(plane: any) {
             localState.planeState = plane
         },
@@ -137,6 +139,12 @@ const App = observer(() => {
         },
         setColorWidget(widget: any) {
             localState.colorWidget = widget;
+        },
+        setColorArray(array: any) {
+            localState.colorArray = array;
+        },
+        setScalars(scalars:any){
+            localState.scalars = scalars;
         }
     }))
 
@@ -338,6 +346,9 @@ const App = observer(() => {
             localState.sliceRenderer.removeAllVolumes()
 
         }
+        if (localState.colorWidget) {
+            localState.colorWidget.setContainer(null)
+        }
     }
 
     const renderDataCube = (arrayToRender: any, dimensions: any) => {
@@ -362,6 +373,7 @@ const App = observer(() => {
                 dataType: VtkDataTypes.FLOAT, // values encoding
                 name: 'scalars'
             });
+            localState.setScalars(scalars)
 
             var imageData = vtkImageData.newInstance();
             imageData.setOrigin(0, 0, 0);
@@ -370,59 +382,19 @@ const App = observer(() => {
             imageData.setExtent([0, width - 1, 0, height - 1, 0, depth - 1]);
             imageData.getPointData().setScalars(scalars);
 
-
-
-            const colorWidget = vtkPiecewiseGaussianWidget.newInstance({
-                numberOfBins: 256,
-                size: [400, 150],
-            });
-
-            localState.setColorWidget(colorWidget);
-
-            localState.colorWidget.updateStyle({
-                backgroundColor: 'rgba(255, 255, 255, 0.6)',
-                histogramColor: 'rgba(100, 100, 100, 0.5)',
-                strokeColor: 'rgb(0, 0, 0)',
-                activeColor: 'rgb(255, 255, 255)',
-                handleColor: 'rgb(50, 150, 50)',
-                buttonDisableFillColor: 'rgba(255, 255, 255, 0.5)',
-                buttonDisableStrokeColor: 'rgba(0, 0, 0, 0.5)',
-                buttonStrokeColor: 'rgba(0, 0, 0, 1)',
-                buttonFillColor: 'rgba(255, 255, 255, 1)',
-                strokeWidth: 2,
-                activeStrokeWidth: 3,
-                buttonStrokeWidth: 1.5,
-                handleWidth: 3,
-                iconSize: 20, // Can be 0 if you want to remove buttons (dblClick for (+) / rightClick for (-))
-                padding: 10,
-            });
-
-            var view3d = document.getElementById("view3d");
-
-            view3d.addEventListener('mouseup', debounceLog);
-
-            const widgetContainer = document.getElementById("widgetContainer");;
-            widgetContainer.style.background = 'rgba(255, 255, 255, 0.3)';
-            widgetContainer.style.width = '100%';
-
-            const dataRange = scalars.getRange();
-            globalDataRange[0] = dataRange[0];
-            globalDataRange[1] = dataRange[1];
             const piecewiseFunction = vtkPiecewiseFunction.newInstance();
             localState.setPiecewiseFunction(piecewiseFunction)
             const lookupTable = vtkColorTransferFunction.newInstance();
             localState.setColorTransferFunction(lookupTable)
 
-            localState.colorWidget.setDataArray(scalars.getData());
-            localState.colorWidget.applyOpacity(localState.pieceWiseFunction);
-            localState.colorWidget.addGaussian(Math.round(maxPixel * 100), 1, 1, 1, 1);
+            var view3d = document.getElementById("view3d");
 
-            localState.colorWidget.setColorTransferFunction(localState.colorTransferFunction);
-            localState.colorTransferFunction.onModified(() => {
-                localState.colorWidget.render();
-                localState.renderWindow.render();
-            });
-
+            view3d.addEventListener('mouseup', debounceLog);
+            const dataRange = scalars.getRange();
+            globalDataRange[0] = dataRange[0];
+            globalDataRange[1] = dataRange[1];
+     
+            initOpacityWidget()
 
             localState.setExtent(imageData.getExtent());
 
@@ -436,31 +408,14 @@ const App = observer(() => {
 
             localState.volumeActor.getProperty().setRGBTransferFunction(0, localState.colorTransferFunction);
             localState.volumeActor.getProperty().setScalarOpacity(0, localState.pieceWiseFunction);
-            localState.volumeActor.getProperty().setInterpolationTypeToFastLinear();
+            localState.volumeActor.getProperty().setInterpolationTypeToNearest();
             cropFilter.setInputData(imageData);
             localState.mapper.setInputConnection(cropFilter.getOutputPort())
             localState.mapper.setBlendModeToComposite();
             cropFilter.setCroppingPlanes(...imageData.getExtent())
 
             localState.volumeActor.setMapper(mapper);
-            localState.colorWidget.onOpacityChange(() => {
-                removeImage()
-                console.log(localState.pieceWiseFunction.getDataPointer())
-                colorWidget.applyOpacity(localState.pieceWiseFunction);
-                if (!renderWindow.getInteractor().isAnimating()) {
-                    renderWindow.render();
-                }
-            });
 
-            localState.colorWidget.setContainer(widgetContainer);
-            localState.colorWidget.bindMouseListeners();
-            localState.colorWidget.onAnimation((start) => {
-                if (start) {
-                    localState.renderWindow.getInteractor().requestAnimation(widget);
-                } else {
-                    localState.renderWindow.getInteractor().cancelAnimation(widget);
-                }
-            });
 
             const renderer = vtkRenderer.newInstance({
                 background: [255, 255, 255]
@@ -518,6 +473,7 @@ const App = observer(() => {
     }
 
     const defaultColorFunction = () => {
+        localState.setColorArray([0.0, 0.0, 0.0, 0.0, Math.round(maxPixel * 100) / 100, 1.0, 1.0, 1.0]) // Set presets to be sent to server
         localState.colorTransferFunction.addRGBPoint(0.0, 0.0, 0.0, 0.0);
         localState.colorTransferFunction.addRGBPoint(Math.round(maxPixel * 100) / 100, 1.0, 1.0, 1.0);
         return localState.colorTransferFunction;
@@ -533,6 +489,67 @@ const App = observer(() => {
         property.setRGBTransferFunction(0, defaultColorFunction());
         property.setScalarOpacity(0, defaultOpacityFunction());
         property.setUseGradientOpacity(0, false);
+    }
+
+    const initOpacityWidget = () => {
+        if (localState.colorWidget) {
+            localState.colorWidget.setContainer(null)
+        }
+        const colorWidget = vtkPiecewiseGaussianWidget.newInstance({
+            numberOfBins: Math.ceil(maxPixel - minPixel + 1),
+            size: [400, 150],
+        });
+        localState.setColorWidget(colorWidget);
+
+        localState.colorWidget.updateStyle({
+            backgroundColor: 'rgba(255, 255, 255, 0.6)',
+            histogramColor: 'rgba(100, 100, 100, 0.5)',
+            strokeColor: 'rgb(0, 0, 0)',
+            activeColor: 'rgb(255, 255, 255)',
+            handleColor: 'rgb(50, 150, 50)',
+            buttonDisableFillColor: 'rgba(255, 255, 255, 0.5)',
+            buttonDisableStrokeColor: 'rgba(0, 0, 0, 0.5)',
+            buttonStrokeColor: 'rgba(0, 0, 0, 1)',
+            buttonFillColor: 'rgba(255, 255, 255, 1)',
+            strokeWidth: 2,
+            activeStrokeWidth: 3,
+            buttonStrokeWidth: 1.5,
+            handleWidth: 3,
+            iconSize: 20, // Can be 0 if you want to remove buttons (dblClick for (+) / rightClick for (-))
+            padding: 10,
+        });
+
+        const widgetContainer = document.getElementById("widgetContainer");;
+        widgetContainer.style.background = 'rgba(255, 255, 255, 0.3)';
+        widgetContainer.style.width = '100%';
+        localState.colorWidget.setContainer(widgetContainer);
+
+        localState.colorWidget.setDataArray(localState.scalars.getData());
+        localState.colorWidget.applyOpacity(localState.pieceWiseFunction);
+        localState.colorWidget.addGaussian(Math.round(maxPixel * 100), 1, 1, 1, 1);
+
+        localState.colorWidget.setColorTransferFunction(localState.colorTransferFunction);
+        localState.colorTransferFunction.onModified(() => {
+            localState.colorWidget.render();
+            localState.renderWindow.render();
+        });
+        localState.colorWidget.onOpacityChange(() => {
+            removeImage()
+            console.log(localState.pieceWiseFunction.getDataPointer())
+            localState.colorWidget.applyOpacity(localState.pieceWiseFunction);
+            if (!localState.renderWindow.getInteractor().isAnimating()) {
+                localState.renderWindow.render();
+            }
+        });
+
+        localState.colorWidget.bindMouseListeners();
+        localState.colorWidget.onAnimation((start) => {
+            if (start) {
+                localState.renderWindow.getInteractor().requestAnimation(localState.widget);
+            } else {
+                localState.renderWindow.getInteractor().cancelAnimation(localState.widget);
+            }
+        });
 
     }
 
@@ -572,8 +589,8 @@ const App = observer(() => {
         })
     }
 
-    const captureCameraInfo = () => {
 
+    const captureCameraInfo = () => {
         const request = new CameraInfo();
         const positionList = localState.renderer.getActiveCamera().getPosition()
         const focalPointList = localState.renderer.getActiveCamera().getFocalPoint()
@@ -582,6 +599,7 @@ const App = observer(() => {
         const viewUpList = localState.renderer.getActiveCamera().getViewUp()
         const distance = localState.renderer.getActiveCamera().getDistance()
         let opacityArray = localState.pieceWiseFunction.getDataPointer()
+        let colorArray = localState.colorArray
         const rgba = [0, 0, 0, 0]
         // const alpha = localState.colorTransferFunction.getAlpha();
         const croppingPlanes = localState.planeState;
@@ -599,7 +617,7 @@ const App = observer(() => {
         request.setDistance(distance)
         request.setSMethod(localState.sampleType)
         request.setOpacityArrayList(opacityArray)
-
+        request.setColorArrayList(colorArray)
         console.log("Position: " + positionList)
         console.log("Focal point: " + focalPointList)
         console.log("Width: " + widthRef.current)
@@ -615,7 +633,7 @@ const App = observer(() => {
 
     }
 
- 
+
     const debounceLog = useCallback(debounce(() => {
         setTotalHqBytes(0)
         setHqData([])
@@ -666,18 +684,29 @@ const App = observer(() => {
     }
 
     const onColorChosen = (color: any) => {
+        console.log(color)
         if (color === "Default") {
             localState.colorTransferFunction.removeAllPoints();
             initTransferFunctionProps(localState.volumeActor.getProperty())
+
         } else {
-            localState.colorTransferFunction.applyColorMap(vtkColorMaps.getPresetByName(color))
+            localState.colorTransferFunction.removeAllPoints();
+            localState.setColorArray(vtkColorMaps.getPresetByName(color).RGBPoints)
+            //localState.colorTransferFunction.applyColorMap(vtkColorMaps.getPresetByName(color))
+            for (let i = 0; i < localState.colorArray.length; i = i + 4) {
+                localState.colorTransferFunction.addRGBPoint(localState.colorArray[i], localState.colorArray[i + 1], localState.colorArray[i + 2], localState.colorArray[i + 3])
+            }
+
+            localState.volumeActor.getProperty().setRGBTransferFunction(0, localState.colorTransferFunction);
         }
     }
 
     const resetOpacity = () => {
-        localState.pieceWiseFunction.addPoint(0.0, 0.0);
-        localState.pieceWiseFunction.addPoint(Math.round(maxPixel * 100) / 100, 1.0);
-        localState.colorWidget.applyOpacity(localState.pieceWiseFunction);
+        initOpacityWidget()
+        localState.colorTransferFunction.removeAllPoints();
+        localState.pieceWiseFunction.removeAllPoints();
+        initTransferFunctionProps(localState.volumeActor.getProperty())
+        localState.renderWindow.render()
     }
 
     return (
