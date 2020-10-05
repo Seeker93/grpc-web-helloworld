@@ -30,7 +30,6 @@ import { observer, useLocalStore } from 'mobx-react'
 import { debounce, YUV2RBG, byteArrayToFloatArray, concatArrays } from './utils/helperFunctions'
 
 import classNames from 'classnames/bind';
-import { remove } from 'mobx';
 
 const worker = require('workerize-loader!./worker'); // eslint-disable-line import/no-webpack-loader-syntax
 const { FileDetails, FilesRequest, CameraInfo } = require('./voxualize-protos/voxualize_pb.js');
@@ -162,6 +161,7 @@ const App = observer(() => {
     const [fullModel, setFullModel] = useState(false)
     const [minPixel, setMinPixel] = useState(0);
     const [maxPixel, setMaxPixel] = useState(0);
+    const [errorMessage, setErrorMessage] = useState('')
     const [alignIndicator, setAlignIndicator] = useState(Alignment.RIGHT);
     const renderWindowLodRef = useRef(null);
 
@@ -174,6 +174,7 @@ const App = observer(() => {
         if (totalBytes > 0 && totalBytes === lodNumBytes) {
             setCubeLoaded(true)
             renderDataCube(rawArray, [dimensionX, dimensionY, dimensionZ])
+            setTotalBytes(0);
         }
 
     }, [totalBytes]);
@@ -218,7 +219,7 @@ const App = observer(() => {
         var request = captureCameraInfo();
         var lodClient = client.getNewROILOD(request, {})
 
-        lodClient.on('data', (response: any, err: any) => {
+        lodClient.on('data', (response: any) => {
             if (firstStream) { // only get the total number of bytes in first stream message
                 setLodNumBytes(response.getTotalLodBytes())  // Set the number of bytes in the LOD model to the new value
                 setDimensionX(response.getDimensionsLodList()[0]) //Set new dimensions
@@ -231,11 +232,12 @@ const App = observer(() => {
 
             setRawArray(rawArray => rawArray.concat(response.getBytes()))
             setTotalBytes(totalBytes => totalBytes + response.getNumBytes())
-            if (err) {
-                setLoading(false)
-            }
         }
         )
+        lodClient.on('error', (err: any) => {
+            setLoading(false)
+            timedErrorMessage('Error while fetching new LOD model')
+        })
     }
 
     // Decodes 2D image.
@@ -533,19 +535,20 @@ const App = observer(() => {
         }
     }
 
+    const timedErrorMessage = (message: string) => {
+        setErrorMessage(message)
+        setTimeout(() => { setErrorMessage('') }, 8000) // Message displays for 8 seconds
+    }
+
     // Calls rpc that receives LOD byte data
     const renderFile = () => {
         setLoading(true)
 
         var request = new FileDetails();
         request.setFileName(filename);
-        request.setSMethod(0); //Default to max
         var renderFileClient = client.chooseFile(request, {})
         request.setTargetSizeLodBytes(localState.lodMemorySize); //Set the LOD memory size to the size selected
-        renderFileClient.on('data', (response: any, err: any) => {
-            if (err) {
-                console.log(err)
-            }
+        renderFileClient.on('data', (response: any) => {
             if (firstStream) {
                 setLodNumBytes(response.getTotalLodBytes())
                 setMinPixel(response.getMinPixel())
@@ -560,6 +563,14 @@ const App = observer(() => {
             setRawArray(rawArray => rawArray.concat(response.getBytes()))
             setTotalBytes(totalBytes => totalBytes + response.getNumBytes())
         })
+        renderFileClient.on('error', (err: any) => {
+            setLoading(false)
+            if (err.code === 14) {
+                timedErrorMessage('Server disconnected');
+            }
+            console.log(`Unexpected stream error: code = ${err.code}` +
+                `, message = "${err.message}"`);
+        });
     }
 
     // Captures current orientation of LOD cube
@@ -616,7 +627,7 @@ const App = observer(() => {
 
         var request = captureCameraInfo()
         var renderClient = client.getHQRender(request, {})
-        renderClient.on('data', (response: any, err: any) => {
+        renderClient.on('data', (response: any) => {
             if (response) {
                 if (response.getUuid() !== localState.currentUuid) {
                     console.log('Stale image, do not use')
@@ -630,9 +641,11 @@ const App = observer(() => {
                     setTotalHqBytes(totalHqBytes => totalHqBytes + response.getNumBytes())
                 }
             };
-            if (err) {
-                console.log(err)
-            }
+        })
+
+        renderClient.on('error', (error: any) => {
+            setLoading(false)
+            timedErrorMessage("Error while fetching HQ image")
         })
     }, 300), [])
 
@@ -680,13 +693,16 @@ const App = observer(() => {
                 </div>
             </div>
             <div className={'loading-div'}>
+                {errorMessage !== '' &&
+                    <h6 className="text-danger mt-3">{errorMessage}</h6>
+                }
                 {loading &&
                     <img src={logo} className="App-logo" alt="logo" />
                 }
                 {cubeLoaded &&
                     <div className={"row"}>
                         <div className={"col mt-3 ml-2"}>
-                            <h6 className ={"col col-sm mr-2"}>Downsampling method</h6>
+                            <p className={"col col-sm mr-2 text-dark"}>Downsampling method</p>
                             <AlignmentSelect
                                 align={alignIndicator}
                                 allowCenter={false}
@@ -718,7 +734,7 @@ const App = observer(() => {
                 <div className={"d-flex col col-lg-5 mt-4"}>
                     {cubeLoaded && <AxisSlider localState={localState} />}
                 </div>
-                <div className="d-flex flex-column col col-lg-4 my-auto">
+                <div className="d-flex flex-column col col-lg-3 my-auto">
                     <div id="widgetContainer" className={"pt-2"}>
                     </div>
                     {cubeLoaded && <button className="btn btn-sm btn-outline-secondary text-white " onClick={resetOpacity}>Reset opacity</button>}
