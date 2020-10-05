@@ -10,11 +10,10 @@ export interface IAlignSelectProps {
 
 export class AlignmentSelect extends React.PureComponent<IAlignSelectProps> {
     public render() {
-        const { align, allowCenter = true, label = "Align text" } = this.props;
+        const { align, allowCenter = true } = this.props;
         return (
             <div>
-                <h6 className={"text-white"}>{label}</h6>
-                <ButtonGroup fill={true} style={{ marginTop: 5 }}>
+                <ButtonGroup fill={true}>
                     <Button active={align === Alignment.LEFT} text="Max" onClick={this.handleAlignLeft} />
                     {allowCenter && (
                         <Button
