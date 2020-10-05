@@ -1,5 +1,38 @@
+# CARTA-HONS-PROJECT Frontend
 
-## IMPORTANT NOTE
+This project is a web-application that allows the user to visualize astronomical data on his / her browser. It is meant to be used in conjunction with the server created by my project partner, which is also sitting in this folder. 
+
+The client is a React web application that connects to a C++ backend. The project allows the visualization of astronomical data-cubes. It employs a hybrid-rendering approach that allows for both interactivity and detailed analysis. 
+
+
+## User-interface 
+
+The image below shows the basic user-interface of the application:
+
+<img src="./readme-images/UI.jpeg" height="300">
+<br/>
+<br/>
+
+ - A: File selector - Used for selecting the file to visualize
+ - B: Viewing Area - This is the main area used to view the cube. When interacting with the cube, the user sees a downsampled level-of-detail (LOD) model of the cube. When the user stops interacting with the cube for around 300ms, a high quality image is sent from the server, replacing the LOD model.
+ - C: Cropping widget - Allows the user to resize the data cube as you see fit. 
+ - D: Axes sliders - Allows a secondary way to resize the cube. C and D are mapped together
+ - E: LOD model slider- Allows the user to specify the size cube rendered by the frontend. This can make the LOD model more / less detailed depending on the setting.
+ - F: Reset cube button - Resets the cube to it's default cropping regions / transfer function settings etc.
+ - G: Sample type: - Allows the user to choose which sampling method to use for the LOD model
+ - H: Opacity widget - Allows the user to change the opacity transfer function, and updates the model accordingly. Includes a reset button to change back to the default opacity settings.
+
+
+## Running code: Prerequisites
+
+You will need to install the following packages to get this code to run. 
+
+- [npm](https://www.npmjs.com/)
+- [docker](https://www.docker.com/)
+- [protoc](https://github.com/protocolbuffers/protobuf/releases)
+- [protoc-gen-grpc-web](https://github.com/grpc/grpc-web/releases)
+
+
 Before running any of the commands below, make sure you cd into the src folder.
 ```
  $ cd src
@@ -7,15 +40,11 @@ Before running any of the commands below, make sure you cd into the src folder.
 
 ## Generate Protobuf Messages and Client Service Stub
 
+This project uses gRPC to communicate between front-end and backend. 
+
 To generate the protobuf messages and client service stub class from your
 `.proto` definitions, we need the `protoc` binary and the
 `protoc-gen-grpc-web` plugin.
-
-You can download the `protoc-gen-grpc-web` protoc plugin from our
-[release](https://github.com/grpc/grpc-web/releases) page:
-
-If you don't already have `protoc` installed, you will have to download it
-first from [here](https://github.com/protocolbuffers/protobuf/releases).
 
 cd into the `voxualize-protos` folder and run:
 ```sh
@@ -29,11 +58,10 @@ Then navigate back to the `src` folder
 Make sure they are both executable and are discoverable from your PATH.
 
 When you have both `protoc` and `protoc-gen-grpc-web` installed, you can now
-run this command:
+run the script to generate the proto code:
 
 ```sh
-$ protoc -I=./voxualize-protos/ voxualize.proto   --js_out=import_style=commonjs:./voxualize-protos/   --grpc-web_out=import_style=commonjs,mode=grpcwebtext:./voxualize-protos/
-
+$ ./update-protos.sh
 ```
 
 After the command runs successfully, you should now see two new files generated
@@ -41,23 +69,15 @@ in the current directory:
 
  - `voxualize_pb.js`
  - `voxualize_grpc_web_pb.js`
+
  
-## Run the Example!
+## Run the Code!
  
- 1. Run the Envoy proxy. The `envoy.yaml` file configures Envoy to listen to
- browser requests at port `:8080`, and forward them to port `:9090` (see
- above).
+ 1. Run the build script. In order for gRPC to work on the web, you need to run the Envoy Proxy. A build script has been made for this purpose. Make sure you are in the /src folder and simply run
 
  ```sh
- $ sudo docker build -t voxualize/envoy -f ./envoy.Dockerfile .
- $ sudo docker run -d -p 8080:8080 -p 9901:9901 --network=host voxualize/envoy
- ```
+ $ ./runme.sh
 
-NOTE: As per [this issue](https://github.com/grpc/grpc-web/issues/436):
-if you are running Docker on Mac/Windows, remove the `--network=host` option:
-
- ```sh
- $ docker run -d -p 8080:8080 -p 9901:9901 voxualize/envoy
  ```
 
 2. Next, we need to build and run the React front-end
@@ -72,4 +92,4 @@ When these are all ready, you can open a browser tab and navigate to
 localhost:3000
 ```
 
-Click the button and you should receive a message from the backend
+If the server is up and running, you should be able to choose files to visualize. 

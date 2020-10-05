@@ -31,3 +31,29 @@ export const YUV2RBG = (yuv: Uint8Array, width: number, height: number) => {
 
     return rgb;
 }
+
+
+export const byteArrayToFloatArray = (incomingData: any) => {
+    const slicedArray = incomingData.slice();
+    return new Float32Array(slicedArray.buffer);
+}
+
+
+export const concatArrays = (arrayToConcat: any) => { // a, b TypedArray of same type
+    let array = arrayToConcat
+
+    // Get the total length of all arrays.
+    let length = 0;
+    array.forEach(item => {
+        length += item.length;
+    });
+
+    // Create a new array with total length and merge all source arrays.
+    let mergedArray = new Uint8Array(length);
+    let offset = 0;
+    array.forEach(item => {
+        mergedArray.set(item, offset);
+        offset += item.length;
+    });
+    return mergedArray
+}

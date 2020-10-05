@@ -27,16 +27,17 @@ import vtkInteractorStyleTrackballCamera from 'vtk.js/Sources/Interaction/Style/
 import { v4 as uuidv4 } from 'uuid';
 import logo from "./logo.svg";
 import { observer, useLocalStore } from 'mobx-react'
-import { debounce, YUV2RBG } from './utils/helperFunctions'
+import { debounce, YUV2RBG, byteArrayToFloatArray, concatArrays } from './utils/helperFunctions'
 
 import classNames from 'classnames/bind';
+import { remove } from 'mobx';
 
 const worker = require('workerize-loader!./worker'); // eslint-disable-line import/no-webpack-loader-syntax
-const { FileDetails, FilesRequest, CameraInfo, GetDataRequest } = require('./voxualize-protos/voxualize_pb.js');
+const { FileDetails, FilesRequest, CameraInfo } = require('./voxualize-protos/voxualize_pb.js');
 const { GreeterPromiseClient } = require('./voxualize-protos/voxualize_grpc_web_pb.js');
 
 const App = observer(() => {
-    const localState = useLocalStore(() => ({
+    const localState = useLocalStore(() => ({ //Mobx local store. Same as react state, but with observable properties
         widget: null,
         planeState: null,
         cropFilter: null,
@@ -62,8 +63,7 @@ const App = observer(() => {
         originalDimensions: null,
         currentUuid: "",
         colorWidget: null,
-        colorArray: null,
-        scalars:null,
+        scalars: null,
         setPlaneState(plane: any) {
             localState.planeState = plane
         },
@@ -139,10 +139,7 @@ const App = observer(() => {
         setColorWidget(widget: any) {
             localState.colorWidget = widget;
         },
-        setColorArray(array: any) {
-            localState.colorArray = array;
-        },
-        setScalars(scalars:any){
+        setScalars(scalars: any) {
             localState.scalars = scalars;
         }
     }))
@@ -171,36 +168,27 @@ const App = observer(() => {
     const widthRef = useRef(0);
     const heightRef = useRef(0);
 
-
     var client = new GreeterPromiseClient('http://' + window.location.hostname + ':8080', null, null);
-
-
-    const convertBlock = (incomingData: any) => {
-        const slicedArray = incomingData.slice();
-        return new Float32Array(slicedArray.buffer);
-    }
 
     useEffect(() => {
         if (totalBytes > 0 && totalBytes === lodNumBytes) {
             setCubeLoaded(true)
             renderDataCube(rawArray, [dimensionX, dimensionY, dimensionZ])
-
         }
 
     }, [totalBytes]);
 
     useEffect(() => {
-
         if (totalHqBytes > 0 && totalHqBytes === hqNumBytes) {
             decode2DImage()
             setCubeLoaded(true)
         }
-
     }, [totalHqBytes]);
 
     useEffect(() => {
         removeImage()
     }, [localState.axesChanged]);
+
 
     useEffect(() => {
         if (cubeLoaded) {
@@ -208,33 +196,15 @@ const App = observer(() => {
         }
     }, [localState.axesReleased])
 
-
-    const concatArrays = (arrayToConcat: any) => { // a, b TypedArray of same type
-        let array = arrayToConcat
-
-        // Get the total length of all arrays.
-        let length = 0;
-        array.forEach(item => {
-            length += item.length;
-        });
-
-        // Create a new array with total length and merge all source arrays.
-        let mergedArray = new Uint8Array(length);
-        let offset = 0;
-        array.forEach(item => {
-            mergedArray.set(item, offset);
-            offset += item.length;
-        });
-        return mergedArray
-    }
-
-
-    const removeImage = useCallback(() => { //Usecallback makes sure that all signatures of this same method are the same
+    // Removes image when user interacts with it.
+    // Usecallback makes sure that all signatures of this same method are the same
+    const removeImage = useCallback(() => {
         if (localState.renderWindow) {
             localState.renderWindow.removeRenderer(localState.sliceRenderer) // Remove slice when the user clicks the static image
         }
     }, [])
 
+    // Called when the user requests a higher / lower res LOD model
     const getNewLodModel = () => {
         if (JSON.stringify([...localState.extent]) === JSON.stringify([...localState.planeState])) {
             setFullModel(true)
@@ -268,8 +238,9 @@ const App = observer(() => {
         )
     }
 
-    const decode2DImage = () => { // We have to use webworkers, because h264decoder uses webassembly, and chrome does not allow heavy webassembly tasks on the main thread
-
+    // Decodes 2D image.
+    // We have to use webworkers, because h264decoder uses webassembly, and chrome does not allow heavy webassembly tasks on the main thread
+    const decode2DImage = () => {
         let rawArray = concatArrays(hqData) //Combine byte stream arrays
         const workerInstance = worker()
         let decodedArray = new Uint8Array()
@@ -288,6 +259,8 @@ const App = observer(() => {
         workerInstance.decode(rawArray)
     }
 
+
+    //Renders 2D high quality image
     const render2DImage = (height: number, width: number, rgbArray: Uint8Array) => {
         console.log('Rendering 2d image')
 
@@ -313,6 +286,7 @@ const App = observer(() => {
         var view3d = document.getElementById("view3d");
 
         view3d.addEventListener('mousedown', removeImage); // Switches to LOD on mouse click
+        view3d.addEventListener('scroll', removeImage); // Switches to LOD on mouse click
 
         const sliceRenderer = vtkRenderer.newInstance({
             background: [255, 255, 255]
@@ -321,22 +295,20 @@ const App = observer(() => {
         localState.setSliceRenderer(sliceRenderer)
         localState.sliceRenderer.addActor(actor);
         let bounds = [0, renderWindowLodRef.current.offsetWidth - 1, 0, renderWindowLodRef.current.offsetHeight - 1, 0, 0]
-        localState.sliceRenderer.resetCameraNoOffset(bounds);
-        console.log(bounds)
+        localState.sliceRenderer.resetCameraNoOffset(bounds, 400 * 1.86);
         localState.renderWindow.addRenderer(localState.sliceRenderer) // Overlay slice on top of volume after user stops interacting
         localState.renderWindow.render();
         setFirstStream(true);
 
     }
 
+    // Resets render windows when render is called again.
     const resetRenderItems = () => {
 
         if (localState.renderer) {
             var view3d = document.getElementById("view3d");
-
             view3d.removeEventListener('mouseup', debounceLog)
             view3d.removeEventListener('mousedown', removeImage)
-
             localState.openGlWindow.setContainer(null)
             localState.renderer.removeAllActors()
             localState.renderer.removeAllVolumes()
@@ -345,13 +317,14 @@ const App = observer(() => {
         if (localState.sliceRenderer) {
             localState.sliceRenderer.removeAllActors()
             localState.sliceRenderer.removeAllVolumes()
-
         }
+
         if (localState.colorWidget) {
             localState.colorWidget.setContainer(null)
         }
     }
 
+    //  Renders LOD model
     const renderDataCube = (arrayToRender: any, dimensions: any) => {
         setLoading(true)
         resetRenderItems()
@@ -366,7 +339,7 @@ const App = observer(() => {
                 localState.setOriginalArray(arrayToRender)
                 localState.setOriginalDimensions(dimensions)
             }
-            var values = convertBlock(rawValues);
+            var values = byteArrayToFloatArray(rawValues);
             var scalars = vtkDataArray.newInstance({
                 values: values,
                 numberOfComponents: 1, // number of channels (grayscale)
@@ -389,7 +362,7 @@ const App = observer(() => {
 
             var view3d = document.getElementById("view3d");
 
-            view3d.addEventListener('mouseup', debounceLog);     
+            view3d.addEventListener('mouseup', debounceLog);
             initOpacityWidget()
 
             localState.setExtent(imageData.getExtent());
@@ -411,7 +384,6 @@ const App = observer(() => {
             cropFilter.setCroppingPlanes(...imageData.getExtent())
 
             localState.volumeActor.setMapper(mapper);
-
 
             const renderer = vtkRenderer.newInstance({
                 background: [255, 255, 255]
@@ -454,8 +426,6 @@ const App = observer(() => {
             localState.widget.setEdgeHandlesEnabled(true);
         }
 
-
-
         createCube();
         setLoading(false);
         setFirstStream(true);
@@ -469,7 +439,6 @@ const App = observer(() => {
     }
 
     const defaultColorFunction = () => {
-        localState.setColorArray([0.0, 0.0, 0.0, 0.0, Math.round(maxPixel * 100) / 100, 1.0, 1.0, 1.0]) // Set presets to be sent to server
         localState.colorTransferFunction.addRGBPoint(0.0, 0.0, 0.0, 0.0);
         localState.colorTransferFunction.addRGBPoint(Math.round(maxPixel * 100) / 100, 1.0, 1.0, 1.0);
         return localState.colorTransferFunction;
@@ -492,8 +461,8 @@ const App = observer(() => {
             localState.colorWidget.setContainer(null)
         }
         const colorWidget = vtkPiecewiseGaussianWidget.newInstance({
-            numberOfBins: Math.ceil(maxPixel - minPixel + 1),
-            size: [400, 150],
+            numberOfBins: Math.ceil(maxPixel - minPixel + 1) * 5,
+            size: [420, 120],
         });
         localState.setColorWidget(colorWidget);
 
@@ -511,7 +480,7 @@ const App = observer(() => {
             activeStrokeWidth: 3,
             buttonStrokeWidth: 1.5,
             handleWidth: 3,
-            iconSize: 20, // Can be 0 if you want to remove buttons (dblClick for (+) / rightClick for (-))
+            iconSize: 0,
             padding: 10,
         });
 
@@ -549,6 +518,14 @@ const App = observer(() => {
 
     }
 
+    //Request list of files on server
+    const requestFiles = () => {
+        var request = new FilesRequest();
+        request.setUselessMessage("This is a useless message");
+        client.listFiles(request, {}).then((response: any) => setFileNames(response.getFilesList())).catch((err: any) => { console.log(err) });
+    }
+
+    // Called when data file is selected
     const onFileChosen = (filename: any) => {
         setFileName(filename)
         if (filename === null || filename === '') {
@@ -556,6 +533,7 @@ const App = observer(() => {
         }
     }
 
+    // Calls rpc that receives LOD byte data
     const renderFile = () => {
         setLoading(true)
 
@@ -576,7 +554,6 @@ const App = observer(() => {
                 setDimensionX(dimensionsArray[0])
                 setDimensionY(dimensionsArray[1])
                 setDimensionZ(dimensionsArray[2])
-
                 setFirstStream(false)
             }
 
@@ -585,38 +562,39 @@ const App = observer(() => {
         })
     }
 
-
+    // Captures current orientation of LOD cube
     const captureCameraInfo = () => {
         const request = new CameraInfo();
         const positionList = localState.renderer.getActiveCamera().getPosition()
         const focalPointList = localState.renderer.getActiveCamera().getFocalPoint()
         widthRef.current = renderWindowLodRef.current.offsetWidth
         heightRef.current = renderWindowLodRef.current.offsetHeight
+
+        let windowWidth = widthRef.current % 2 === 0 ? widthRef.current : widthRef.current + 1; // Force even number
+        let windowHeight = heightRef.current % 2 === 0 ? heightRef.current : heightRef.current + 1;
+
         const viewUpList = localState.renderer.getActiveCamera().getViewUp()
         const distance = localState.renderer.getActiveCamera().getDistance()
         let opacityArray = localState.pieceWiseFunction.getDataPointer()
-        let colorArray = localState.colorArray
         const rgba = [0, 0, 0, 0]
         const croppingPlanes = localState.planeState;
         let uniqueId = uuidv4();
         localState.setCurrentUuid(uniqueId);
 
         request.setTargetSizeLodBytes(localState.lodMemorySize);
-
         request.setCroppingPlanesList(croppingPlanes)
         request.setRgbaList(rgba)
         request.setAlpha(1)
         request.setPositionList(positionList)
         request.setFocalPointList(focalPointList)
-        request.setWindowWidth(widthRef.current)
-        request.setWindowHeight(heightRef.current)
+        request.setWindowWidth(windowWidth)
+        request.setWindowHeight(windowHeight)
         request.setViewUpList(viewUpList)
         request.setDistance(distance)
         request.setSMethod(localState.sampleType)
         request.setUuid(uniqueId)
 
         request.setOpacityArrayList(opacityArray)
-        request.setColorArrayList(colorArray)
         console.log("Position: " + positionList)
         console.log("Focal point: " + focalPointList)
         console.log("Width: " + widthRef.current)
@@ -625,13 +603,12 @@ const App = observer(() => {
         console.log("Distance: " + distance)
         console.log("Cropping planes: " + localState.cropFilter.getCroppingPlanes())
         console.log("Sample Type: " + localState.sampleType)
-        console.log("Uuid "  + uniqueId)
+        console.log("Uuid " + uniqueId)
 
         return request
-
     }
 
-
+    // Called whenever the user stops interacting with the cube (after 300ms)
     const debounceLog = useCallback(debounce(() => {
         setTotalHqBytes(0)
         setHqData([])
@@ -659,14 +636,7 @@ const App = observer(() => {
         })
     }, 300), [])
 
-
-
-    const requestFiles = () => {
-        var request = new FilesRequest();
-        request.setUselessMessage("This is a useless message");
-        client.listFiles(request, {}).then((response: any) => setFileNames(response.getFilesList())).catch((err: any) => { console.log(err) });
-    }
-
+    // Resets cube to it's original state
     const resetCube = () => {
         var request = new CameraInfo();
         request.setTargetSizeLodBytes(localState.oldLodSize)
@@ -675,6 +645,7 @@ const App = observer(() => {
         renderDataCube(localState.originalArray, localState.originalDimensions)
     }
 
+    // Handle sampling method
     const handleAlignChange = (align: any) => {
         if (align === Alignment.LEFT) {
             localState.setSampleType(0)
@@ -685,7 +656,10 @@ const App = observer(() => {
         setAlignIndicator(align);
         getNewLodModel()
     }
+
+    // Resets opacity transfer function values
     const resetOpacity = () => {
+        removeImage()
         initOpacityWidget()
         localState.colorTransferFunction.removeAllPoints();
         localState.pieceWiseFunction.removeAllPoints();
@@ -712,7 +686,7 @@ const App = observer(() => {
                 {cubeLoaded &&
                     <div className={"row"}>
                         <div className={"col mt-3 ml-2"}>
-
+                            <h6 className ={"col col-sm mr-2"}>Downsampling method</h6>
                             <AlignmentSelect
                                 align={alignIndicator}
                                 allowCenter={false}
@@ -725,28 +699,26 @@ const App = observer(() => {
 
             <div className={classNames('rendering-window', 'row')} id="view3d" ref={renderWindowLodRef}>
                 {/* Rendering happens in this div */}
-
             </div>
 
             <div className="fixed-bottom bg-dark h-25 justify-content-center row" >
-
                 <div className={"d-flex col col-lg-2 mt-4"}>
                     {cubeLoaded &&
                         <div>
                             <div className={"mb-3"}>
                                 <LodSizeSlider localState={localState} />
-                                <button className="btn btn-success mt-2" onClick={getNewLodModel}>Request new model</button>
                             </div>
-                            <div className={""}>
-                                {cubeLoaded && <button className="btn btn-outline-secondary text-white " onClick={resetCube}>Reset cropping area</button>}
+                            <div className={"row"}>
+                                <button className="btn btn-success btn-sm mt-3 col col-sm mr-1" onClick={getNewLodModel}>Request new model</button>
+                                {cubeLoaded && <button className="btn btn-outline-secondary btn-sm text-white col col-sm mt-3 ml-1" onClick={resetCube}>Reset cropping area</button>}
                             </div>
                         </div>
                     }
                 </div>
-                <div className={"d-flex col col-lg-6 mt-4"}>
+                <div className={"d-flex col col-lg-5 mt-4"}>
                     {cubeLoaded && <AxisSlider localState={localState} />}
                 </div>
-                <div className="d-flex flex-column col col-lg-3 mt-4 mb-4">
+                <div className="d-flex flex-column col col-lg-4 my-auto">
                     <div id="widgetContainer" className={"pt-2"}>
                     </div>
                     {cubeLoaded && <button className="btn btn-sm btn-outline-secondary text-white " onClick={resetOpacity}>Reset opacity</button>}
