@@ -300,6 +300,8 @@ const App = observer(() => {
         localState.renderWindow.addRenderer(localState.sliceRenderer) // Overlay slice on top of volume after user stops interacting
         localState.renderWindow.render();
         setFirstStream(true);
+        setLoading(false)
+
 
     }
 
@@ -407,7 +409,7 @@ const App = observer(() => {
 
             localState.renderer.getActiveCamera().azimuth(45);
             localState.renderer.resetCamera();
-            localState.renderWindow.render();
+            // localState.renderWindow.render();
             localState.setRenderer(renderer)
             localState.renderWindow.addRenderer(renderer);
 
@@ -438,7 +440,6 @@ const App = observer(() => {
         }
 
         createCube();
-        setLoading(false);
         setFirstStream(true);
 
         if (fullModel) {// check if the current cube is the full model
@@ -447,6 +448,7 @@ const App = observer(() => {
             localState.setOldLodSize(localState.lodMemorySize);
             setFullModel(false);
         }
+        debounceLog();
     }
 
     const defaultColorFunction = () => {
@@ -665,6 +667,7 @@ const App = observer(() => {
         client.reset(request, {})
         localState.setLodMemorySize(localState.oldLodSize)
         renderDataCube(localState.originalArray, localState.originalDimensions)
+        localState.renderWindow.render()
     }
 
     // Handle sampling method
@@ -722,7 +725,7 @@ const App = observer(() => {
                 }
             </div>
 
-            <div className={classNames('rendering-window', 'row')} id="view3d" ref={renderWindowLodRef}>
+            <div className={classNames('rendering-window', 'row', loading ? "invisible" : "visible")} id="view3d" ref={renderWindowLodRef}>
                 {/* Rendering happens in this div */}
             </div>
 
