@@ -491,7 +491,7 @@ const App = observer(() => {
             activeStrokeWidth: 3,
             buttonStrokeWidth: 1.5,
             handleWidth: 3,
-            iconSize: 0,
+            iconSize: 20,
             padding: 10,
         });
 
