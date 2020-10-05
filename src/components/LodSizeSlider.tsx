@@ -1,11 +1,10 @@
 
-import React, {useState} from 'react'
+import React from 'react'
 import { Slider } from "@blueprintjs/core";
 import { observer } from 'mobx-react'
 
 export const LodSizeSlider = observer((props: any) => {
     const { localState } = props //import shared state from props
-    const [memorySize, setMemorySize] = useState(10)
     // Adjusting the slider sets the state variable
 
     const onSizeChangeRelease = (value: number) => {
