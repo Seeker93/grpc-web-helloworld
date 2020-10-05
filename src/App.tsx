@@ -288,7 +288,6 @@ const App = observer(() => {
         var view3d = document.getElementById("view3d");
 
         view3d.addEventListener('mousedown', removeImage); // Switches to LOD on mouse click
-        view3d.addEventListener('scroll', removeImage); // Switches to LOD on mouse click
 
         const sliceRenderer = vtkRenderer.newInstance({
             background: [255, 255, 255]
@@ -311,6 +310,7 @@ const App = observer(() => {
             var view3d = document.getElementById("view3d");
             view3d.removeEventListener('mouseup', debounceLog)
             view3d.removeEventListener('mousedown', removeImage)
+            view3d.removeEventListener('resize', resizeWindow)
             localState.openGlWindow.setContainer(null)
             localState.renderer.removeAllActors()
             localState.renderer.removeAllVolumes()
@@ -324,6 +324,14 @@ const App = observer(() => {
         if (localState.colorWidget) {
             localState.colorWidget.setContainer(null)
         }
+    }
+
+    // Resizes render window when the window is resized to make actors stay a sensible size
+    const resizeWindow = () => {
+        var view3d = document.getElementById("view3d");
+        const dims = view3d.getBoundingClientRect();
+        localState.openGlWindow.setSize(dims.width, dims.height)
+        localState.renderWindow.render()
     }
 
     //  Renders LOD model
@@ -365,6 +373,7 @@ const App = observer(() => {
             var view3d = document.getElementById("view3d");
 
             view3d.addEventListener('mouseup', debounceLog);
+            window.addEventListener('resize', resizeWindow);
             initOpacityWidget()
 
             localState.setExtent(imageData.getExtent());
