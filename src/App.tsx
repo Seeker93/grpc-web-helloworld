@@ -552,7 +552,7 @@ const App = observer(() => {
     // Calls rpc that receives LOD byte data
     const renderFile = () => {
         setLoading(true)
-
+        setRawArray([])
         var request = new FileDetails();
         request.setFileName(filename);
         var renderFileClient = client.chooseFile(request, {})
