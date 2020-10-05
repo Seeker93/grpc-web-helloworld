@@ -9,7 +9,7 @@ The client is a React web application that connects to a C++ backend. The projec
 
 The image below shows the basic user-interface of the application:
 
-<img src="./readme-images/UI.jpeg" height="300">
+<img src="./readme-images/user-interface.png" height="300">
 <br/>
 <br/>
 
