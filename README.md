@@ -80,7 +80,7 @@ in the current directory:
 
  ```
 
-2. Next, we need to build and run the React front-end
+2. Next, we need to build and run the React front-end. Navigate out of src/ back into the root folder ie.  cd ..
 ```sh
 $ npm install
 $ npm start

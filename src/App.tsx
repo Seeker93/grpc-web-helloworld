@@ -162,7 +162,7 @@ const App = observer(() => {
     const [minPixel, setMinPixel] = useState(0);
     const [maxPixel, setMaxPixel] = useState(0);
     const [errorMessage, setErrorMessage] = useState('')
-    const [alignIndicator, setAlignIndicator] = useState(Alignment.RIGHT);
+    const [alignIndicator, setAlignIndicator] = useState(Alignment.LEFT);
     const renderWindowLodRef = useRef(null);
 
     const widthRef = useRef(0);
