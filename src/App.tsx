@@ -743,7 +743,7 @@ const App = observer(() => {
                 <div className={"d-flex col col-lg-5 mt-4"}>
                     {cubeLoaded && <AxisSlider localState={localState} />}
                 </div>
-                <div className="d-flex flex-column col col-lg-3 my-auto">
+                <div className="d-flex flex-column col col-lg-4 my-auto">
                     <div id="widgetContainer" className={"pt-2"}>
                     </div>
                     {cubeLoaded && <button className="btn btn-sm btn-outline-secondary text-white " onClick={resetOpacity}>Reset opacity</button>}
